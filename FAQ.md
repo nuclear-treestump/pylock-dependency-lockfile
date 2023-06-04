@@ -32,4 +32,8 @@ You can submit a feature request, but please note that whether it gets implement
 
 ## Can the name change?
 
-Yes, the name "PyLock Dependency Manager" is temporary and could change in the future if the need arises.
+Yes, the name "PyLock Dependency Manager" is temporary and could change in the future if the need arises (such as in the case of conflict with an existing tool or package.)
+
+## Will there be a Python module version of PyLock Dependency Manager?
+
+Yes, there are plans to create a Python module version of the PyLock Dependency Manager. This will allow developers to directly integrate its functionality within their own Python scripts or applications, providing a programmatic way to manage or check dependencies as part of their code execution. This could be particularly useful for large applications that use multiple scripts, each with their own set of dependencies.
