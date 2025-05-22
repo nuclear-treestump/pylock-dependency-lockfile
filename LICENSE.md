@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2023 nuclear-treestump
+Copyright (c) 2023-2025 nuclear-treestump
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -9,8 +9,10 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-For personal use, no further conditions apply. For enterprise use, credit must
-be given to the original author, along with a link back to the original repository.
+1. For non-commercial and personal use, no additional conditions apply.
+2. For commercial or enterprise use, visible credit must be given to the author
+   (nuclear-treestump) and a link to the original repository must be retained
+   in documentation, about screens, and/or build logs.
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
