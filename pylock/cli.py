@@ -45,5 +45,5 @@ def main():
         if args.run:
             execute_script(args.script)
         return
-
+    
     parser.print_help()

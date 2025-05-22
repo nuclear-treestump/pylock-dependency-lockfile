@@ -60,3 +60,17 @@ def test_cli_help_output(capsys):
 
     captured = capsys.readouterr()
     assert "[pylock] Error: File not found: dummy.py" in captured.err
+
+def test_cli_explicit_help(capsys):
+    sys.argv = ["pylock", "--help"]
+    try:
+        pylock_main()
+    except SystemExit:
+        pass
+
+    captured = capsys.readouterr()
+    assert "PyLock: A gatekeeper dependency validator for Python scripts" in captured.out
+    assert "Usage: pylock script.py" in captured.out
+    assert "--generate" in captured.out
+    assert "--validate" in captured.out
+    assert "--run" in captured.out
