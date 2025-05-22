@@ -1,5 +1,7 @@
 # PyLock Dependency Manager
 
+[![codecov](https://codecov.io/gh/nuclear-treestump/pylock-dependency-lockfile/graph/badge.svg?token=TF4K5GQNAS)](https://codecov.io/gh/nuclear-treestump/pylock-dependency-lockfile)
+
 ## Introduction
 Welcome to PyLock Dependency Manager, a personal project aimed at providing a simple and effective solution for managing Python dependencies. As the sole developer, progress might be slow but the goal is to create a tool that can accurately identify and track the dependencies of a Python script, and ensure that these dependencies are met before the script is executed.
 
