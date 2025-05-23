@@ -2,7 +2,7 @@ import os
 import json
 import tempfile
 from pathlib import Path
-from pylock.lockfile import LockfileManager
+from pydepguard.pylock.lockfile import LockfileManager
 
 def test_lockfile_write_and_read():
     deps = {

@@ -74,3 +74,64 @@ def test_cli_explicit_help(capsys):
     assert "--generate" in captured.out
     assert "--validate" in captured.out
     assert "--run" in captured.out
+
+def test_cli_no_flags_shows_help(capsys):
+    sys.argv = ["pylock"]
+    try:
+        pylock_main()
+    except SystemExit:
+        pass
+
+    captured = capsys.readouterr()
+    assert "PyLock: A gatekeeper dependency validator for Python scripts" in captured.out
+    assert "Usage: pylock script.py" in captured.out
+
+def test_cli_print_help_if_no_action(capsys):
+    code = "print('Hi')"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
+        tmp.write(code)
+        script_path = tmp.name
+
+    try:
+        sys.argv = ["pylock", script_path]
+        try:
+            pylock_main()
+        except SystemExit:
+            pass
+
+        captured = capsys.readouterr()
+        assert "[pylock] No action specified" in captured.out
+        assert "Usage: pylock script.py" in captured.out
+
+    finally:
+        if Path(script_path).exists():
+            os.remove(script_path)
+
+def test_cli_validate_missing_lockfile(capsys):
+    code = "print('just a test')"
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
+        tmp.write(code)
+        script_path = tmp.name
+
+    pylock_dir = Path(script_path).parent / ".pylock"
+    lockfile_path = pylock_dir / f"{Path(script_path).stem}_dep.lck"
+    if lockfile_path.exists():
+        os.remove(lockfile_path)
+
+    try:
+        sys.argv = ["pylock", script_path, "--validate"]
+        try:
+            pylock_main()
+        except SystemExit:
+            pass
+
+        captured = capsys.readouterr()
+        assert "No lockfile found" in captured.err
+        assert "--generate first" in captured.err
+
+    finally:
+        if Path(script_path).exists():
+            os.remove(script_path)
+        if pylock_dir.exists() and not any(pylock_dir.iterdir()):
+            pylock_dir.rmdir()
+

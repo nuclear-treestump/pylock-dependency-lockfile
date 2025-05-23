@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from pylock.depscan import scan_script_for_imports, ImportReference
+from pydepguard.pylock.depscan import scan_script_for_imports, ImportReference
 
 def write_temp_script(code: str) -> Path:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
@@ -180,5 +180,24 @@ __import__(mod)
     print_refs("DUNDER IMPORT VAR ARG", results)
 
     assert all(r.import_type != 'dynamic' for r in results)
+
+def test_dunder_import_empty_args():
+    code = "__import__()"
+    tmp_path = write_temp_script(code)
+
+    results = scan_script_for_imports(tmp_path)
+    print_refs("DUNDER IMPORT EMPTY ARGS", results)
+    assert results == []
+
+def test_importlib_no_args():
+    code = "import importlib\nimportlib.import_module()"
+    tmp_path = write_temp_script(code)
+
+    results = scan_script_for_imports(tmp_path)
+    print_refs("IMPORTLIB NO ARGS", results)
+
+    assert any(r.module == 'importlib' and r.import_type == 'import' for r in results)
+    assert all(r.import_type != 'dynamic' for r in results)
+
 
 # Cucumbers

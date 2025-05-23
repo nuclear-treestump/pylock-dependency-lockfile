@@ -1,7 +1,7 @@
 import os
 import tempfile
 import subprocess
-from pylock.runner import execute_script
+from pydepguard.pylock.runner import execute_script
 
 def test_execute_script_runs_successfully(capsys):
     code = "print(\"Hello from test script\")"

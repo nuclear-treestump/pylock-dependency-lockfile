@@ -1,5 +1,5 @@
-from pylock.utils import enrich_dependencies
-from pylock.depscan import ImportReference
+from pydepguard.pylock.utils import enrich_dependencies
+from pydepguard.pylock.depscan import ImportReference
 from pathlib import Path
 
 def test_enrich_known_package():

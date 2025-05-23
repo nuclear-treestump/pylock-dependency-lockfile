@@ -32,8 +32,8 @@ def scan_script_for_imports(filepath: Path) -> list[ImportReference]:
                 ))
 
         elif isinstance(node, ast.ImportFrom):
-            if node.level and not node.module:
-                module = '.' * node.level
+            if node.level and not node.module: 
+                module = '.' * node.level 
                 symbols = [alias.name for alias in node.names]
             else:
                 module = f"{'.' * node.level}{node.module}" if node.level else node.module
@@ -49,7 +49,7 @@ def scan_script_for_imports(filepath: Path) -> list[ImportReference]:
 
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id == '__import__':
-                if len(node.args) >= 1 and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                if len(node.args) >= 1 and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str): 
                     refs.append(ImportReference(
                         module=node.args[0].value,
                         file=str(filepath),
@@ -58,7 +58,7 @@ def scan_script_for_imports(filepath: Path) -> list[ImportReference]:
                         imported_symbols=[]
                     ))
             elif isinstance(node.func, ast.Attribute) and node.func.attr == 'import_module':
-                if hasattr(node.func.value, 'id') and node.func.value.id == 'importlib':
+                if hasattr(node.func.value, 'id') and node.func.value.id == 'importlib': 
                     if len(node.args) >= 1 and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
                         refs.append(ImportReference(
                             module=node.args[0].value,
