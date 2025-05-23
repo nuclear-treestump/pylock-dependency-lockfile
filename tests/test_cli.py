@@ -2,8 +2,8 @@ import os
 import json
 import tempfile
 from pathlib import Path
-from pylock.cli import main as pylock_main
-from pylock.lockfile import LockfileManager
+from pydepguard.pylock.cli import main as pylock_main
+from pydepguard.pylock.lockfile import LockfileManager
 import subprocess
 import sys
 
