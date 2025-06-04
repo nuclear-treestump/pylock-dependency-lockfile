@@ -1,5 +1,6 @@
 import argparse
 import sys
+import json
 from pathlib import Path
 from .depscan import scan_script_for_imports
 from .lockfile import LockfileManager
@@ -46,13 +47,18 @@ def main():
 
     if args.generate:
         print("[pylock] Scanning for imports...")
-        imports = scan_script_for_imports(script_path)
+        imports, unbound_symbols = scan_script_for_imports(script_path)
+        print(f"[pylock] Found {len(unbound_symbols)} unbound symbols.")
+        unbound_findings = list()
+        for sym in unbound_symbols:
+            unbound_findings.append(f"File: {sym.file} Module: {sym.name} Line Number: {sym.line})")
+            print(f"[pylock.CRIT] Unbound Symbol: {sym.name} at {sym.file}:{sym.line} - Add `import {sym.name}` to {sym.file} resolve.")
         deps = enrich_dependencies(imports)
         lm.save(deps)
         return
 
     if args.validate or args.run:
-        if not lm.exists(): # <-- Branch not checked
+        if not lm.exists():
             print(f"[pylock] Error: No lockfile found for {script_path.name}. Please run with --generate first.", file=sys.stderr)
             sys.exit(1)
 
