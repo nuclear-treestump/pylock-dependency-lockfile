@@ -1,12 +1,24 @@
 [project]
 name = "pydepguard"
-version = "3.0.0"
+version = "3.0.1"
 description = "PyDepGuard PyLock: A gatekeeper dependency validator for Python scripts"
 authors = [{ name = "0xIkari", email = "zachary@zachary-miller.com" }]
-license = "MIT"
-
+license = { text = "Modified MIT: attribution required for commercial use" }
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
+keywords = ["dependency", "lockfile", "security", "SBOM", "validator", "pip", "CI"]
+classifiers = [
+  "License :: Freely Distributable",
+  "License :: Other/Proprietary License",
+  "Development Status :: 3 - Beta",
+  "Programming Language :: Python :: 3.11",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Security",
+  "Topic :: System :: Systems Administration",
+]
+
+
 
 [tool.setuptools]
 license-files = ["LICENSE.md"]
@@ -22,3 +34,8 @@ pydepguard = "pydepguard.pylock.cli:main"
 [build-system]
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.urls]
+"Homepage" = "https://github.com/nuclear-treestump/pylock-dependency-lockfile"
+"Source" = "https://github.com/nuclear-treestump/pylock-dependency-lockfile"
+"Bug Tracker" = "https://github.com/nuclear-treestump/pylock-dependency-lockfile/issues"
