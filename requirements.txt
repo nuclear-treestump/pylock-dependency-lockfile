@@ -1,1 +1,1 @@
-pytest==8.3.5
+# Nothing here! No really!

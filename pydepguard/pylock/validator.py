@@ -1,6 +1,6 @@
 import importlib.metadata
 import subprocess
-from packaging.version import Version, InvalidVersion
+from .package_handler import ensure_package, install_package
 
 def resolve_installed_package_info(package_name: str) -> dict:
     try:
@@ -31,7 +31,7 @@ def check_package_availability(package, expected_version=None):
         'source': info['source']
     }
 
-def validate_environment(lockfile, *, strict=True, interactive=True, on_error='abort'):
+def validate_environment(lockfile, *, strict=True, interactive=True, on_error='abort', fix_missing=False):
     if not isinstance(lockfile, dict) or 'deps' not in lockfile:
         raise ValueError("[pylock] Invalid lockfile format: 'deps' key missing")
 
@@ -49,6 +49,12 @@ def validate_environment(lockfile, *, strict=True, interactive=True, on_error='a
 
         if not result['available']:
             msg = f"[pylock] Missing required package: {dep}"
+            if fix_missing:
+                try:
+                    ensure_package(dep, info.get('version'))
+                    continue
+                except Exception as e:
+                    print(f"[pylock.WARN] Auto-install failed: {e}")
             if on_error == 'abort': 
                 raise RuntimeError(msg)
             elif on_error == 'warn':

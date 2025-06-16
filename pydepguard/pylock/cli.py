@@ -8,11 +8,16 @@ from .validator import validate_environment
 from .runner import execute_script
 from .utils import enrich_dependencies
 
+from time import time
+
+gtime = time()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="PyLock: A gatekeeper dependency validator for Python scripts.\n"
                     "This tool scans Python scripts for imports, generates lockfiles, and validates dependencies.\n"
-                    "Version 2.0.0 - Made by 0xIkari\n"
+                    "Version 3.0.0 - Made by 0xIkari\n"
                     "Part of the PyDepGuard project\n"
                     "Usage: pylock script.py [options]\n\n"
                     "Options:\n"
@@ -31,6 +36,7 @@ def main():
     parser.add_argument('--strict', action='store_true')
     parser.add_argument('--non-interactive', action='store_true')
     parser.add_argument('--on-error', choices=['abort', 'warn', 'skip'], default='abort')
+    parser.add_argument('--fix-missing', action='store_true')
 
     args = parser.parse_args()
 
@@ -55,6 +61,9 @@ def main():
             print(f"[pylock.CRIT] Unbound Symbol: {sym.name} at {sym.file}:{sym.line} - Add `import {sym.name}` to {sym.file} resolve.")
         deps = enrich_dependencies(imports)
         lm.save(deps)
+        print(f"[pylock] Lockfile generated for {script_path.name} with {len(deps)} dependencies.")
+        print(f"[pylock.DBG] Total Time Spent: {time() - gtime:.8f} seconds")
+        print(f"If this helped you save time, please star or sponsor me: https://github.com/nuclear-treestump/pylock-dependency-lockfile")
         return
 
     if args.validate or args.run:
@@ -67,10 +76,13 @@ def main():
             lockfile,
             strict=args.strict,
             interactive=not args.non_interactive,
-            on_error=args.on_error
+            on_error=args.on_error,
+            fix_missing=args.fix_missing
         )
         if args.run:
             execute_script(args.script)
+        print(f"[pylock.DBG] Total Time Spent: {time() - gtime:.8f} seconds")
+        print(f"If this helped you save time, please star or sponsor me: https://github.com/nuclear-treestump/pylock-dependency-lockfile")
         return
 
     print("[pylock] No action specified. Use --generate, --validate, or --run.\n")

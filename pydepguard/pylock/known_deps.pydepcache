@@ -1,0 +1,11 @@
+{
+  "yaml": "pyyaml",
+  "bs4": "beautifulsoup4",
+  "cv2": "opencv-python",
+  "PIL": "pillow",
+  "sklearn": "scikit-learn",
+  "Crypto": "pycryptodome",
+  "Image": "pillow",
+  "lxml": "lxml",
+  "win32com": "pywin32"
+}

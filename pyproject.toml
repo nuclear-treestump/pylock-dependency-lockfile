@@ -1,20 +1,19 @@
 [project]
 name = "pydepguard"
-version = "2.0.0"
+version = "3.0.0"
 description = "PyDepGuard PyLock: A gatekeeper dependency validator for Python scripts"
 authors = [{ name = "0xIkari", email = "zachary@zachary-miller.com" }]
 license = "MIT"
 
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "importlib-metadata; python_version<'3.10'"
-]
 
 [tool.setuptools]
 license-files = ["LICENSE.md"]
 packages = ["pydepguard", "pydepguard.pylock"]
 
+[tool.setuptools.package-data]
+"pydepguard.pylock" = ["known_deps.pydepcache"]
 
 [project.scripts]
 pylock = "pydepguard.pylock.cli:main"

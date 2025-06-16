@@ -1,0 +1,8 @@
+{
+    "pandas.read_excel": ["openpyxl", "xlrd"],
+    "pandas.read_html": ["lxml", "html5lib", "bs4"],
+    "sqlalchemy.create_engine": ["sqlite3", "psycopg2", "mysqlclient"],
+    "yaml.safe_load": ["pyyaml"],
+    "matplotlib.use": ["matplotlib"],
+    "pydantic.BaseModel": ["pydantic"],
+}
