@@ -4,8 +4,14 @@ from pathlib import Path
 import sysconfig
 import sys
 import ast
+import re
 from typing import List, Dict
 from .depscan import ImportReference
+
+
+def strip_extras(requirement: str) -> str:
+    return re.split(r"[<>=!~\[]", requirement)[0].strip()
+
 
 
 def enrich_dependencies(imports: List[ImportReference]) -> Dict[str, dict]:
@@ -20,7 +26,7 @@ def enrich_dependencies(imports: List[ImportReference]) -> Dict[str, dict]:
             dist = importlib.metadata.distribution(top_package)
             version = dist.version
             requires = dist.requires or []
-            transitive = [r.split(' ', 1)[0] for r in requires if r and not r.startswith('extra')]
+            transitive = [strip_extras(r) for r in requires if r and not r.startswith('extra')]
         except importlib.metadata.PackageNotFoundError:
             version = "unknown"
             transitive = []
