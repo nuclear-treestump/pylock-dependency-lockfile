@@ -10,7 +10,7 @@ keywords = ["dependency", "lockfile", "security", "SBOM", "validator", "pip", "C
 classifiers = [
   "License :: Freely Distributable",
   "License :: Other/Proprietary License",
-  "Development Status :: 3 - Beta",
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3.11",
   "Intended Audience :: Developers",
   "Topic :: Software Development :: Build Tools",
