@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/nuclear-treestump/pylock-dependency-lockfile/graph/badge.svg?token=TF4K5GQNAS)](https://codecov.io/gh/nuclear-treestump/pylock-dependency-lockfile)[![PyPI](https://img.shields.io/pypi/v/pydepguard.svg)](https://pypi.org/project/pydepguard/)[![Downloads](https://pepy.tech/badge/pydepguard)](https://pepy.tech/project/pydepguard)
 
 
-# ⚠️ Major changes coming in v4 — [Read NOTICE.md](./NOTICE.md)
+# ⚠️ Major changes coming in v4 — See [Future](#future-goodies)
 
 ### [TOC](#toc)
 - [Introduction](#introduction)
