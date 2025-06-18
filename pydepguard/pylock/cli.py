@@ -26,7 +26,8 @@ def main():
                     "  --run              Run the script if validation passes\n"
                     "  --strict           Enable strict version matching\n"
                     "  --non-interactive  Disable user input (e.g., for CI/CD)\n"
-                    "  --on-error         Set behavior on errors: 'abort', 'warn', or 'skip'\n",
+                    "  --on-error         Set behavior on errors: 'abort', 'warn', or 'skip'\n"
+                    "  --fix-missing      Install any missing dependencies as found during AST or locklife read\n",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('script', nargs='?', help="Script to check and run")
