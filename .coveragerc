@@ -1,0 +1,8 @@
+[run]
+omit =
+    */test_*.py
+    */tests/*
+    */__main__.py
+    */new_script.py
+    */myscript.py
+    */pydepguard/*

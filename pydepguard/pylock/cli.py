@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="PyLock: A gatekeeper dependency validator for Python scripts.\n"
                     "This tool scans Python scripts for imports, generates lockfiles, and validates dependencies.\n"
-                    "Version 3.0.0 - Made by 0xIkari\n"
+                    "Version 3.0.4 - Made by 0xIkari\n"
                     "Part of the PyDepGuard project\n"
                     "Usage: pylock script.py [options]\n\n"
                     "Options:\n"
