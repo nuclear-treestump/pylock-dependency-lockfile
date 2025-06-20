@@ -1,7 +1,13 @@
 # .github/workflows/test.yml
 name: PyLock Tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   test:
@@ -21,7 +27,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=pydepguard --cov-report=xml
+          pytest --cov=pydepguardnext --cov-report=xml
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
