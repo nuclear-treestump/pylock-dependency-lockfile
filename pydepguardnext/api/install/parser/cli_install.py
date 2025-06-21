@@ -14,9 +14,9 @@ Example:
     [ParsedDependency(name='flask', ...), ...]
 """
 
-from pydepguard.api.install.parser.common import ParsedDependency
+from pydepguardnext.api.install.parser.common import ParsedDependency
 from typing import List
-from pydepguard.api.deps.version import split_name_and_version
+from pydepguardnext.api.deps.version import split_name_and_version
 
 
 def parse_cli_input(input_str: str) -> List[ParsedDependency]:

@@ -72,7 +72,7 @@ class AutoInstallFinder(importlib.abc.MetaPathFinder):
                 raise
             try:
                 logit(f"Auto-installing: {fullname}", "i")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", fullname])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", fullname], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 return importlib.util.find_spec(fullname)
             except Exception as e:
                 logit(f"Failed to auto-install {fullname}: {e}", "e")
@@ -101,7 +101,7 @@ def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
 
         try:
             logit(f"__import__ fallback: attempting to install {pkg_name}", "i")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as pip_fail:
             logit(f"Installation of {pkg_name} failed: {pip_fail}", "w")
             raise e  
@@ -116,7 +116,7 @@ def _patched_importlib_import_module(name, package=None):
         pkg_name = _known_aliases.get(top, top)
         if _is_probably_real_package(pkg_name) and _package_exists(pkg_name):
             logit(f"Auto-installing missing dependency: {pkg_name}", "i")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return _original_importlib_import_module(name, package)
         logit(f"Package '{top}' not found on PyPI, skipping install", "w")
         raise

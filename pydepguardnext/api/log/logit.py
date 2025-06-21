@@ -4,7 +4,7 @@ import json
 import sys
 import hashlib
 from typing import Any, Optional
-from pydepguard.api.auth.guard import SECRETS_LIST
+from pydepguardnext.api.auth.guard import SECRETS_LIST
 from datetime import datetime, timezone
 
 _last_hash = None

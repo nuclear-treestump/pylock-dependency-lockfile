@@ -13,12 +13,14 @@ def is_installed(pkg_name: str) -> bool:
     return importlib.util.find_spec(pkg_name) is not None
 
 def uninstall_if_installed(pkg_name: str):
+    print(f"Uninstalling {pkg_name} if it exists...")
     if is_installed(pkg_name):
-        subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", pkg_name])
+        subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", pkg_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) 
 
 def reinstall_if_needed(pkg_name: str, was_installed: bool):
+    print(f"Reinstalling {pkg_name} if it was previously installed...")
     if was_installed:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def test_run_with_repair_success(monkeypatch):
