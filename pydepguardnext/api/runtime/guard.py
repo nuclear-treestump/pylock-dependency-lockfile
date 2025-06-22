@@ -10,23 +10,25 @@ import json
 from pathlib import Path
 from pydepguardnext import PyDepBullshitDetectionError
 from pydepguardnext.api.runtime.importer import install_missing_and_retry
-from pydepguardnext.api.log import logit
+from pydepguardnext.api.log.logit import logit
 
 g_time = 0
+
+logslug = "api.runtime.guard"
 
 def run_with_repair(script_path: str, max_retries: int = 5):
     """Executes a script with self-healing retry logic."""
     global g_time
     g_time = time.time()
-    print(f"PyDepGuard self-healing guard started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(g_time))}")
-    print(f"Running script with self-healing logic: {script_path}")
+    logit(f"PyDepGuard self-healing guard started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(g_time))}", "i", source=f"{logslug}.{run_with_repair.__name__}")
+    logit(f"Running script with self-healing logic: {script_path}", "i", source=f"{logslug}.{run_with_repair.__name__}")
     for attempt in range(max_retries):
-        logit.logit(f"[guard] Execution attempt {attempt + 1}/{max_retries}", level="i")
+        logit(f"Execution attempt {attempt + 1}/{max_retries}", "i", source=f"{logslug}.{run_with_repair.__name__}")
         try:
             is_cached = False
             cached_result = load_cached_result(script_path)
             if cached_result:
-                logit.logit(f"[guard] Using cached result for {script_path}", level="i")
+                logit(f"Using cached result for {script_path}", "i", source=f"{logslug}.{run_with_repair.__name__}")
                 is_cached = True
             result, deps = install_missing_and_retry(script_path, timecheck=g_time, cached=is_cached)
             if not is_cached:
@@ -36,18 +38,18 @@ def run_with_repair(script_path: str, max_retries: int = 5):
                     "deps": deps  
                 }
                 save_cache(script_path, cache_data)
-                logit.logit(f"[guard] Cache saved for {script_path} with SHA {sha}", level="i")
+                logit(f"Cache saved for {script_path} with SHA {sha}", "i", source=f"{logslug}.{run_with_repair.__name__}")
             else:
-                logit.logit(f"[guard] Using cached lock data for {script_path}", level="i")
+                logit(f"Using cached lock data for {script_path}", "i", source=f"{logslug}.{run_with_repair.__name__}")
             return result
         except ImportError as e:
-            logit.logit(f"[guard] ImportError caught: {e}", level="w")
+            logit(f"ImportError caught: {e}", "w", source=f"{logslug}.{run_with_repair.__name__}")
             continue  
         except Exception as e:
-            logit.logit(f"Script failed due to non-import error: {e}", level="e")
+            logit(f"Script failed due to non-import error: {e}", "e", source=f"{logslug}.{run_with_repair.__name__}")
             traceback.print_exc()
             break
-    logit.logit(f"Maximum retry attempts reached.", level="c")
+    logit(f"Maximum retry attempts reached.", "c", source=f"{logslug}.{run_with_repair.__name__}")
 
 
 def _compute_sha256(path):
@@ -91,11 +93,11 @@ def load_cached_result(script_path: str):
             return None
         payload_sha = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         if payload_sha != lockfile_hash_obj.get("lockfile_sha256"):
-            print(f"LOCKFILE MISMATCH!")
-            print(f"Environment Compromised.")
+            logit(f"LOCKFILE MISMATCH!", "f", source=f"{logslug}.{load_cached_result.__name__}")
+            logit(f"Environment Compromised.", "f", source=f"{logslug}.{load_cached_result.__name__}")
             raise PyDepBullshitDetectionError(expected=payload_sha, found=lockfile_hash_obj.get("lockfile_sha256"))
         if payload.get("sha256") == sha and "lockfile_sha256" in lockfile_hash_obj and lockfile_hash_obj["lockfile_sha256"] == payload_sha:
-            print(f"Lockfile SHA256 matches, using cached result.")
-            print(f"JIT resolution not needed, using cached deps.")
+            logit(f"Lockfile SHA256 matches, using cached result.", "i", source=f"{logslug}.{load_cached_result.__name__}")
+            logit(f"JIT resolution not needed, using cached deps.", "i", source=f"{logslug}.{load_cached_result.__name__}")
             return payload
     return None

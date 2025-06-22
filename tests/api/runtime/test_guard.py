@@ -1,5 +1,6 @@
 import pydepguardnext.api.runtime.guard as guard
 import pydepguardnext.api.runtime.importer as importer
+from pydepguardnext import PyDepBullshitDetectionError
 import tempfile
 import builtins
 import subprocess
@@ -8,6 +9,9 @@ from pathlib import Path
 import pytest
 import importlib.util
 import sys
+import os
+from textwrap import dedent
+
 
 def is_installed(pkg_name: str) -> bool:
     return importlib.util.find_spec(pkg_name) is not None
@@ -24,7 +28,7 @@ def reinstall_if_needed(pkg_name: str, was_installed: bool):
 
 
 def test_run_with_repair_success(monkeypatch):
-    monkeypatch.setattr(guard, "install_missing_and_retry", lambda path: "success")
+    monkeypatch.setattr(guard, "install_missing_and_retry", lambda path: ("success", None))
     result = guard.run_with_repair("fake.py")
     assert result == "success"
 
@@ -67,6 +71,14 @@ def test_run_with_repair_retries_until_success(monkeypatch):
     result = guard.run_with_repair("script.py", max_retries=5)
     assert result == "recovered"
     assert len(attempts) == 2
+
+### Try as I might, I cannot get any working test for the integrity check.
+### Because all of the guarded functions are import related, they blow up
+### before the integrity check can even run.
+### And I'd rather not build a dummy function just to test the integrity check.
+### It definitely works, but I cannot get it to run in a test.
+### If anyone has a suggestion on how to test this, please let me know.
+### I feel like I'm pentesting myself here. This is a bit ridiculous.
 
 # INTEGRATION TESTS
 

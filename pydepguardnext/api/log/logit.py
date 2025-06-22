@@ -5,7 +5,27 @@ import sys
 import hashlib
 from typing import Any, Optional
 from pydepguardnext.api.auth.guard import SECRETS_LIST
+from pydepguardnext.api.runtime.integrity import INTEGRITY_CHECK
 from datetime import datetime, timezone
+import inspect
+
+def resolve_source(source="auto", max_depth=5):
+    if source != "auto":
+        return source
+
+    stack = inspect.stack()
+    parts = []
+
+    for frame_info in stack[2:2+max_depth]:
+        func = frame_info.function
+        module = inspect.getmodule(frame_info.frame)
+        if module and module.__name__ != "__main__":
+            parts.append(f"{module.__name__}.{func}")
+        else:
+            parts.append(f"__main__.{func}")
+
+    return '.'.join(reversed(parts))
+
 
 _last_hash = None
 
@@ -84,11 +104,21 @@ def logit(
     stacklevel: int = 2,
     fmt: Optional[str] = None,
     source: Optional[str] = None,
+    print_enabled: bool = True,
     **kwargs: Any,
 ) -> None:
     active = log_enable if log_enable is not None else _LOGGING_STATE["enabled"]
     if not active:
         return
+    
+    if source is None:
+        source = "NOTHEREFILLTHISIN"
+    if source == "auto":
+        source = resolve_source("auto")
+    if source != "auto" and source != "NOTHEREFILLTHISIN":
+        source = source
+
+    
 
     logger = logging.getLogger("pydepguard")
     lvl = LOG_LEVELS.get(str(level).lower()[0], logging.INFO)
@@ -112,23 +142,34 @@ def logit(
     if trace and stacktrace:
         logger.exception(stacktrace, stacklevel=stacklevel)
 
-    message = f"[{source}] {message}" if source else message
+    if source:
+        message = f"[{source}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
+    else:
+        message = f"[{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
 
     logger.log(lvl, message, stacklevel=stacklevel, **kwargs)
 
 
-def configure_logging(level="INFO", fmt="text", to_file=None):
+def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True):
     logger = logging.getLogger("pydepguard")
     logger.handlers.clear()
 
-    handler = logging.FileHandler(to_file) if to_file else logging.StreamHandler()
+    if print_enabled:
+        cmd_handler = logging.StreamHandler(sys.stdout)
+        if fmt != "json":
+            cmd_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+        else:
+            cmd_handler.setFormatter(ColoredFormatter("[%(levelname)s] %(message)s"))
+        logger.addHandler(cmd_handler)
+    
+    if to_file:
+        file_handler = logging.FileHandler(to_file)
+        if fmt == "json":
+            file_handler.setFormatter(JSONFormatter())
+        else:
+            file_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+        logger.addHandler(file_handler)
 
-    if fmt == "json":
-        handler.setFormatter(JSONFormatter())
-    else:
-        handler.setFormatter(ColoredFormatter("[%(levelname)s] %(message)s"))
-
-    logger.addHandler(handler)
     logger.setLevel(LOG_LEVELS.get(level[0].lower(), logging.INFO))
 
     _LOGGING_STATE["enabled"] = True

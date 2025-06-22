@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from typing import List
-from pydepguard.api.install.parser.common import ParsedDependency
+from .common import ParsedDependency
 
 @dataclass
 class JSONPackage:

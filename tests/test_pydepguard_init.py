@@ -33,6 +33,7 @@ def test_init_validate_self(capsys):
     assert "[pydepguard] ⚠ Using override hash:" in captured.out
 
 
+
 def test_init_validate_self_hardened(capsys):
     def get_module_root():
         spec = importlib.util.find_spec("pydepguardnext")
@@ -55,7 +56,5 @@ def test_init_validate_self_hardened(capsys):
         return h.hexdigest()
     os.environ["PYDEP_TRUSTED_HASH"] = sha256sum_dir(get_module_root())
     os.environ["PYDEP_HARDENED"] = "1"
-    pydepguardnext.validate_self()
-    captured = capsys.readouterr()
-    print(captured.out)
-    assert "[pydepguard] ⚠ Using override hash:" in captured.out
+    with pytest.raises(pydepguardnext.PyDepBullshitDetectionError):
+        pydepguardnext.validate_self()

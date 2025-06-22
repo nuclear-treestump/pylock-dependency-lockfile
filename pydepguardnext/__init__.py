@@ -1,18 +1,15 @@
-import hashlib
-import urllib.request
-import importlib.util
-import os
 import sys
 import json
 import uuid
 import platform
+import time
 from datetime import datetime, timezone
-from pathlib import Path
 
 _validate_self_has_fired = False
 PACKAGE = "pydepguardnext"
 VERSION = "1.0.0"
 _written_incidents = set()
+_total_global_time = time.time()
 
 
 def log_incident(incident_id, expected, found, context="validate_self"):
@@ -53,7 +50,36 @@ class PyDepBullshitDetectionError(Exception):
             f"Incident ID: {self.incident_id}\n"
             "Linked traceback omitted intentionally."
         )
+print(f"[pydepguard] Bullshit Detection System Initialized\n"
+      f"Package: {PACKAGE}, Version: {VERSION}\n"
+      f"Python: {platform.python_version()}, Executable: {sys.executable}\n")
+jit_check_uuid = uuid.uuid4()
+print(f"[pydepguard] Integrity Check UUID: {jit_check_uuid}\n")
+from .api.runtime.integrity import jit_check, start_patrol
 
+JIT_INTEGRITY_CHECK = jit_check(jit_check_uuid)
+print(f"[pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] JIT Integrity Check Snapshot: {JIT_INTEGRITY_CHECK}\n")
+print(JIT_INTEGRITY_CHECK)
+
+start_patrol()
+
+from .api.log.logit import configure_logging, logit
+
+
+if not sys.stdin.isatty():
+    configure_logging(
+            level=("debug"),
+            to_file=("pydepguard.log"),
+            fmt=("text"),
+            print_enabled=True
+        )
+
+from pathlib import Path
+
+import hashlib
+import urllib.request
+import importlib.util
+import os
 
 
 def abort_with_skull(expected_hash, local_hash):
@@ -115,10 +141,12 @@ def validate_self():
         if expected_hash and local_hash != expected_hash:
             raise PyDepBullshitDetectionError(expected_hash, local_hash) from None
     if env_hash and local_hash == env_hash:
-        print(f"[pydepguard] ⚠ Using override hash: {env_hash[:10]}... (dev mode only)")   
+        print(f"[pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Using override hash: {env_hash[:10]}... (dev mode only)")
 
     else:
-        print("[pydepguard] ⚠ Hash mismatch detected, but not hardened. Proceeding with warning.")
+        print(f"[pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Hash mismatch detected, but not hardened. Proceeding with warning.")
+
+
 
 from .api import *
 from .api.install import *
@@ -126,4 +154,7 @@ from .api.install.parser import *
 from .api.jit import *
 from .api.log import *
 from .api.errors import *
-from .api.runtime import *
+from .api.runtime import * 
+
+
+

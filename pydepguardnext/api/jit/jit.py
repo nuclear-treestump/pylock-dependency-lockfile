@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Internal Magic
 from pydepguardnext.api import errors
-from pydepguardnext.api.log import logit
+from pydepguardnext.api.log.logit import logit
 
 # External Dependencies...
 # Oh wait, there are none!
@@ -23,13 +23,7 @@ from pydepguardnext.api.log import logit
 # Formatting
 from typing import List, Dict
 
-# Log setup only done here for testing purposes. Will be removed when integrated.
-
-logit.configure_logging(
-    level="INFO",
-    fmt="text",
-    to_file="jit.log",
-)
+logslug = "api.jit"
 
 _jit_ast_check_cache = None
 
@@ -52,9 +46,9 @@ def _jit_guard(module_name, pydep_init=False):
         return
 
     filename = _get_user_script_filename()
-    logit.logit(f"Checking AST for jit_import in {filename}", "d")
+    logit(f"Checking AST for jit_import in {filename}", "d", source=f"{logslug}.{_jit_guard.__name__}")
     if not filename:
-        logit.logit("Unable to locate user script for AST scan.", "w")
+        logit("Unable to locate user script for AST scan.", "w", source=f"{logslug}.{_jit_guard.__name__}")
         _jit_ast_check_cache = True
         return
 
@@ -62,7 +56,7 @@ def _jit_guard(module_name, pydep_init=False):
         with open(filename, "r", encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=filename)
     except Exception as e:
-        logit.logit(f"AST scan failed: {e}", "w")
+        logit(f"AST scan failed: {e}", "w", source=f"{logslug}.{_jit_guard.__name__}")
         _jit_ast_check_cache = True
         return
 
@@ -81,7 +75,6 @@ def _jit_guard(module_name, pydep_init=False):
 
 
 def jit_import(module_name: str, version: str, install_missing: bool = True, pydep_init: bool = False) -> bool:
-    source = __name__
     _jit_guard(module_name, pydep_init=pydep_init)
 
     try:
@@ -91,13 +84,13 @@ def jit_import(module_name: str, version: str, install_missing: bool = True, pyd
         if not install_missing:
             raise
 
-        logit.logit(f"'{module_name}' not found. Installing...", "w", source=source)
+        logit(f"'{module_name}' not found. Installing...", "w", source=f"{logslug}.{jit_import.__name__}")
         if not version or version.lower() in {"latest", "any", "none", "null", "undefined", "unspecified", "unknown", "unversioned", "*"}:
-            module_string = module_name 
-            logit.logit(f"No version specified. Installing latest version of '{module_name}'...", "e", source=source)
+            module_string = module_name
+            logit(f"No version specified. Installing latest version of '{module_name}'...", "e", source=f"{logslug}.{jit_import.__name__}")
         else:
             module_string = f"{module_name}=={version}"
-            logit.logit(f"Installing '{module_name}' with version '{version}'...", "i", source=source)
+            logit(f"Installing '{module_name}' with version '{version}'...", "i", source=f"{logslug}.{jit_import.__name__}")
         subprocess.check_call([sys.executable, "-m", "pip", "install", module_string])
-        logit.logit(f"Installed '{module_name}=={version}' successfully.", "i", source=source)
+        logit(f"Installed '{module_name}=={version}' successfully.", "i", source=f"{logslug}.{jit_import.__name__}")
         return True

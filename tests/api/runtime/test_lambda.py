@@ -4,11 +4,21 @@ from pathlib import Path
 import subprocess
 import sys
 import os
+import pytest
 
 from pydepguardnext.api.runtime.airjail import prepare_fakeroot
+from pydepguardnext.api.log.logit import logit, configure_logging
 from pydepguardnext.api.runtime.pydep_lambda import create_lambda_venv, launch_lambda_runtime
 
 import time
+
+def start_logging():
+        configure_logging(
+        level=("debug"),
+        to_file=("pydepguard.log"),
+        fmt=("text"),
+        print_enabled=True
+    )
 
 
 def safe_rmtree(path, retries=5, delay=1, temp_dir=None):
@@ -39,7 +49,6 @@ def test_create_lambda_venv_bootstraps_and_installs():
     script = temp_dir / "hello.py"
     script.write_text("print('Hello world')")
     app_dir = prepare_fakeroot(script_path=script, hash_suffix="venv", base_dir=temp_dir)
-
     py_bin = create_lambda_venv(app_dir, Path("."))
     assert py_bin.exists()
 
@@ -55,7 +64,6 @@ def test_lambda_runtime_executes_script():
     g_time = time.time()
     app_dir = prepare_fakeroot(script_path=script, hash_suffix="run", base_dir=temp_dir)
     py_bin = create_lambda_venv(app_dir, Path("."))
-
     result_code = launch_lambda_runtime(py_bin, app_dir)
     completed_time = time.time() - g_time
     print(f"Script executed in {completed_time:.2f} seconds")
@@ -71,6 +79,7 @@ def test_lambda_runtime_executes_script():
     for p in Path(temp_dir).rglob("*"):
         print(f"- {p}")
     print(f"Only remnants should be the interpreters in {Path(renamed).resolve()}. No userland files survived in fakeroot. I win.")
+
 
 def test_lambda_runtime_executes_script_with_guard():
     temp_dir = Path(tempfile.mkdtemp())
@@ -118,6 +127,7 @@ def test_teardown_timer_kills():
         print(f"- {p}")
     print(f"Only remnants should be the interpreters in {Path(renamed).resolve()}. Known Windows bug. No userland files survived in fakeroot. I win.")
 
+@pytest.mark.integration
 def test_lambda_runtime_executes_known_script_with_guard():
     temp_dir = Path(tempfile.mkdtemp())
     script = temp_dir / "new_script.py"
