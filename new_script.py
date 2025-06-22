@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 import yaml
 import fastapi
 from pydantic import BaseModel
+from importlib import metadata
 
 pd.DataFrame({"A": [1, 2]}).to_excel("fake.xlsx", index=False)
 
@@ -39,3 +40,7 @@ def read_root():
 
 daisy = read_root()
 print("HAL says:", daisy["message"])
+
+dists = metadata.distributions()
+for dist in dists:
+    print(f"Package: {dist.metadata['Name']}, Version: {dist.version}")
