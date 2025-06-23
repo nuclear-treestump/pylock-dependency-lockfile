@@ -277,6 +277,15 @@ This is no different than invoking python <script.py>, just in a secure venv.
 | Daemon / service runner (planned)              | ✅                      | ❌   | ❌      | ❌      | ❌   | ❌     |
 | Lambda-style ephemeral execution of scripts                    | ✅                      | ❌   | ❌      | ❌      | ❌   | ❌     |
 | Blocks untrusted package execution             | ✅                      | ❌   | ❌      | ❌      | ❌   | ❌     |
+| Capable of LIVE-PATCHING deps in without restarting script context|✅|❌|❌|❌|❌|❌|
+
+To my knowledge (and I have looked) is no package manager or runtime I have ever seen in Python that can heal and inject imports without losing script context. In all honesty, I haven't seen one that does JIT dependency retrieval.
+
+Mine can. 
+
+## I catch import related errors before they blow the stack, live retrieving them from pip. This includes RUNTIME dependencies (such as pandas -> openpyxl). 
+
+No other tool that I've seen in Python can make that claim. If it exists, please provide a link or create an issue so I can benchmark against a worthy opponent.
 
 
 
