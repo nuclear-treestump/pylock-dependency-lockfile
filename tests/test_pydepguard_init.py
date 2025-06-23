@@ -3,8 +3,6 @@ import hashlib
 import os
 from pathlib import Path
 import importlib.util
-import pydepguardnext
-
 
 
 def test_init_validate_self(capsys):
@@ -28,9 +26,12 @@ def test_init_validate_self(capsys):
                     h.update(block)
         return h.hexdigest()
     os.environ["PYDEP_TRUSTED_HASH"] = sha256sum_dir(get_module_root())
+    import pydepguardnext
+    pydepguardnext.log_incident("test", "test", "test", "test")
     pydepguardnext.validate_self()
     captured = capsys.readouterr()
-    assert "[pydepguard] ⚠ Using override hash:" in captured.out
+    print(captured.out)
+    assert "⚠ Using override hash:" in captured.out
 
 
 
@@ -56,5 +57,6 @@ def test_init_validate_self_hardened(capsys):
         return h.hexdigest()
     os.environ["PYDEP_TRUSTED_HASH"] = sha256sum_dir(get_module_root())
     os.environ["PYDEP_HARDENED"] = "1"
+    import pydepguardnext
     with pytest.raises(pydepguardnext.PyDepBullshitDetectionError):
         pydepguardnext.validate_self()

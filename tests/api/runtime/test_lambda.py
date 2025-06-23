@@ -136,6 +136,8 @@ def test_lambda_runtime_executes_known_script_with_guard():
     script.write_text(script_content)
     print("TEST START: Running script with guard")
     g_time = time.time()
+    from pydepguardnext.api.runtime.airjail import prepare_fakeroot
+    from pydepguardnext.api.runtime.pydep_lambda import create_lambda_venv, launch_lambda_runtime
     app_dir = prepare_fakeroot(script_path=script, hash_suffix="run", base_dir=temp_dir, persist=True)
     py_bin = create_lambda_venv(app_dir, Path("."))
 
