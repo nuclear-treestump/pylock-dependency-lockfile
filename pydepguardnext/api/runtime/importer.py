@@ -73,6 +73,9 @@ def _log(name):   #pragma: no cover
 def _package_exists(name: str) -> bool:
     check_time = time.time()
     try:
+        if name in _known_aliases:
+            logit(f"Skipping PyPI check for known alias: {name} as it is an alias for {_known_aliases[name]}.", "i", source=f"{logslug}.{_package_exists.__name__}")
+            return True
         if name in _known_skip_pypi_modules:
             logit(f"Skipping PyPI check for known module: {name}, as module does not exist.", "i", source=f"{logslug}.{_package_exists.__name__}")
             return False
@@ -133,23 +136,33 @@ def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
         return _original_import(name, globals, locals, fromlist, level)
     except ImportError as e:
         logit(f"[patched_import] Caught ImportError for {name}, attempting auto-install at {time.time() - _global_timecheck} seconds", "w", source=f"{logslug}.{_patched_import.__name__}")
+        if '.' in name and name not in _known_aliases:
+            logit(f"Skipping auto-install for submodule: {name}", "i", source=f"{logslug}.{_patched_import.__name__}")
+            raise e
         top = name.split(".")[0]
         logit(f"Top-level module: {top}", "d", source=f"{logslug}.{_patched_import.__name__}")
-        if top in [dist.metadata["Name"].lower() for dist in _current_modules]:
-            logit(f"Package '{top}' already installed, skipping auto-install", "d", source=f"{logslug}.{_patched_import.__name__}")
-            return _original_import(name, globals, locals, fromlist, level)
-
         if top in _known_skip_pypi_modules:
-            logit(f"Skipping auto-install for {top} (known skip module)", "d", source=f"{logslug}.{_patched_import.__name__}")
+            logit(f"Skipping auto-install for {top} (known skip module)", "i", source=f"{logslug}.{_patched_import.__name__}")
             raise
-
-        is_real, reason = _is_probably_real_package(top)
+        if top in [dist.metadata["Name"].lower() for dist in _current_modules]:
+            logit(f"Package '{top}' already installed, skipping auto-install", "i", source=f"{logslug}.{_patched_import.__name__}")
+            return _original_import(name, globals, locals, fromlist, level)
+        
+        _alias_check = False
+        is_real = False
+        if top in _known_aliases:
+            logit(f"Top-level module: {top} mapped to alias: {_known_aliases[top]}", "i", source=f"{logslug}.{_patched_import.__name__}")
+            top = _known_aliases[top]
+            _alias_check = True
+            is_real = True
+        if not _alias_check:
+            is_real, reason = _is_probably_real_package(top)
         if not is_real:
-            logit(f"Skipping auto-install for {top} (not a real package) Reason: {reason}", "d", source=f"{logslug}.{_patched_import.__name__}")
+            logit(f"Skipping auto-install for {top} (not a real package) Reason: {reason}", "i", source=f"{logslug}.{_patched_import.__name__}")
             raise
 
         if not _called_from_user_script():
-            logit(f"Skipping auto-install for {top} (not from user script)", "d", source=f"{logslug}.{_patched_import.__name__}")
+            logit(f"Skipping auto-install for {top} (not from user script)", "i", source=f"{logslug}.{_patched_import.__name__}")
             raise
 
         pkg_name = _known_aliases.get(top, top)
@@ -178,24 +191,33 @@ def _patched_importlib_import_module(name, package=None):
     except ImportError:
         logit(f"[patched_import_module] Caught ImportError for {name}, attempting auto-install at {time.time() - _global_timecheck} seconds", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
         top = name.split(".")[0]
-        pkg_name = _known_aliases.get(top, top)
-        is_real, reason = _is_probably_real_package(top)
-        if top in _known_skip_pypi_modules:
-            logit(f"Skipping auto-install for {pkg_name} (known skip module)", "d", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+        if '.' in name and name not in _known_aliases:
+            logit(f"Skipping auto-install for submodule: {name}", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
             raise
+        skip_check = False
+        if top in _known_aliases:
+            pkg_name = _known_aliases[top]
+            logit(f"Top-level module: {top} mapped to alias: {pkg_name}", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+            is_real = True
+            skip_check = True
+        if top in _known_skip_pypi_modules:
+            logit(f"Skipping auto-install for {top} (known skip module)", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+            raise
+        is_real = False
+        if not skip_check:
+            is_real, reason = _is_probably_real_package(top)
         if is_real:
-            if _package_exists(pkg_name):
+            if _package_exists(top):
                 if id(_patched_importlib_import_module) != INTEGRITY_CHECK["importer._patched_importlib_import_module"]:
                     logit(f"ID MISMATCH: _patched_importlib_import_module has been modified, aborting auto-install", "f", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                     raise PyDepBullshitDetectionError(expected=INTEGRITY_CHECK["importer._patched_importlib_import_module"], found=id(_patched_importlib_import_module))
-                logit(f"Auto-installing missing dependency: {pkg_name}", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
-                logit(f"Installing {pkg_name} ...", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+                logit(f"Installing {top} ...", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                 install_time = time.time()
-                subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                logit(f"Installed {pkg_name} in {time.time() - install_time:.2f} seconds", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", top, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                logit(f"Installed {top} in {time.time() - install_time:.2f} seconds", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                 return _original_importlib_import_module(name, package)
         else:
-            logit(f"Skipping auto-install for {top} Reason: {reason}", "d", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+            logit(f"Skipping auto-install for {top} Reason: {reason or 'unknown'}", "d", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
         logit(f"Package '{top}' not found on PyPI, skipping install", "w", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
         raise
 
@@ -225,4 +247,3 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
             "license": dist.metadata.get("License", ""),
         })
     return result, dist_list
-

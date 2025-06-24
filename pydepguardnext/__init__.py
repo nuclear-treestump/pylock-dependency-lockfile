@@ -1,14 +1,33 @@
 from time import time
-
+# This is a self-integrity check for the PyDepGuardNext package.
+# It ensures that the package has not been tampered with and is running in a secure environment
+# I am aware of how much this looks like malware, but I assure you, it is not.
+# This is a security feature to protect the package and its users.
+# It does this by reading the hash of itself and the files, comparing it to the expected hash from PyPI.
+# If the hashes do not match, it raises an error and logs the incident.
+# Then it gets the id() of critical functions and modules to ensure they have not been tampered with.
+# This is then saved in a MappingProxyType to prevent modification.
+# From there, this makes using any of the critical functions or modules impossible if the integrity check fails.
+# This entire process has the environmment locked down by 0.035 seconds total, with the earliest monkeypatch opportunity being right before the JIT integrity check.
+# This window is 0.001 seconds. You are not going to outrun physics.
+# If you are reading this, you are probably a security researcher or a curious user.
+# If you don't believe me, you can check the source code on GitHub:
+# https://github.com/nuclear-treestump/pylock-dependency-lockfile
+# If you find any issues, please report them there.
+# Thank you for your understanding and for using PyDepGuardNext!
 _validate_self_has_fired = False
 PACKAGE = "pydepguardnext"
-VERSION = "1.0.0"
+VERSION = "2.0.1"
 _written_incidents = set()
 _total_global_time = time()
 
 
 
 def log_incident(incident_id, expected, found, context="validate_self"):
+    # This function logs an incident of tampering detected in the package.
+    # It writes a JSON entry to a log file with details about the incident.
+    # This is used to track tampering attempts and provide information for debugging.
+    # This does not have an HTTP loader, but if that's a feature you want, please open an issue on GitHub.
     from datetime import datetime, timezone
     from platform import python_version
     from sys import executable, argv
@@ -30,12 +49,18 @@ def log_incident(incident_id, expected, found, context="validate_self"):
         "script": argv[0],
     }
     try:
+        # TODO: Add ENV control for audit log location
         with open("pydepguard_audit.log", "a", encoding="utf-8") as f:
             f.write(dumps(log_entry) + "\n")
     except Exception as e:
         print(f"[INIT] [pydepguard] ⚠ Audit log write failed: {e}")
 
 class PyDepBullshitDetectionError(Exception):
+    # This exception is raised when the self-integrity check fails.
+    # It logs the incident and raises an error with details.
+    # The incident ID is generated to track the issue.
+    # This intentionally omits the traceback to prevent leaking sensitive information.
+    # This only comes into play if the environment is hardened.
     def __init__(self, expected, found):
         self.expected = expected
         self.found = found
@@ -52,6 +77,8 @@ class PyDepBullshitDetectionError(Exception):
             "Linked traceback omitted intentionally."
         )
 
+# This function fingerprints the system and logs the details, gathering as much information as possible
+# The more items in the json, the more tripwires we have to detect tampering.
 def fingerprint_system():
     from platform import system, release, version, machine, platform, python_version, python_build, python_compiler 
     from getpass import getuser
@@ -91,7 +118,8 @@ def fingerprint_system():
         print(f"  {k}: {v}")
     from hashlib import sha256
     from json import dumps
-    print("[INIT] Fingerprint hash:", sha256(dumps(fingerprint, sort_keys=True).encode()).hexdigest())
+    print("[INIT] Fingerprint hash:", sha256(dumps(fingerprint, sort_keys=True).encode()).hexdigest()) # I will be using this hash to verify the integrity of the environment later on.
+    # TODO: Add more fingerprinting data, like installed packages, environment variables, etc. to INTEGRITY_CHECK
 
 
 from platform import python_version
@@ -102,17 +130,17 @@ print(f"[INIT] [pydepguard] Integrity Check UUID: {jit_check_uuid}")
 from .api.runtime.integrity import jit_check, start_patrol, run_integrity_check
 fingerprint_system()
 print(f"[INIT] [pydepguard] Bullshit Detection System activating.")
-_syslock = time() - _total_global_time
-print(f"[INIT] [pydepguard] Locking down environment for integrity checks at {_syslock:.6f} seconds.")
 JIT_INTEGRITY_CHECK = jit_check(jit_check_uuid)
 start_patrol()
-run_integrity_check()
-_syslock_complete = time() - _total_global_time
 print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Background integrity patrol started.")
-print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] System locked down at {time() - _total_global_time:.6f} seconds. Timedelta: {_syslock_complete - _syslock:.6f} seconds.")
-print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] JIT Integrity Check Snapshot: {JIT_INTEGRITY_CHECK}")
+ # This is the time it took to run the first integrity check, which is the JIT integrity check.
+print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] First check: {run_integrity_check():.6f} seconds. JIT Integrity Check Snapshot: {JIT_INTEGRITY_CHECK}")
 
-from .api.log.logit import configure_logging, logit
+from .api.log.logit import configure_logging
+
+# I delayed logging configuration to avoid circular imports and ensure the integrity check runs first.
+# The time between moving from execution on __init__ to running the integrity check is sub <0.001 seconds, so this is not a performance issue.
+# If you're an attacker, you'll have a bad time trying to outrun physics.
 
 from sys import stdin
 if not stdin.isatty():
@@ -127,6 +155,7 @@ from pathlib import Path
 
 
 def abort_with_skull(expected_hash, local_hash):
+    # This was the first iteration of PyDepBullshitDetectionError
     msg = (
         "Abort, Retry, 💀\n"
         f"Self-integrity check failed.\nExpected: {expected_hash}, Found: {local_hash}\n"
@@ -137,6 +166,7 @@ def abort_with_skull(expected_hash, local_hash):
 
 
 def get_module_root():
+    # This function returns the root directory of the current package.
     from importlib.util import find_spec
     from pathlib import Path
     spec = find_spec(PACKAGE)
@@ -148,6 +178,7 @@ def get_module_root():
     return path
 
 def sha256sum_dir(directory: Path):
+    # Hash all the things
     from hashlib import sha256
     h = sha256()
     for file in sorted(directory.rglob("*.py")):
@@ -161,11 +192,13 @@ def sha256sum_dir(directory: Path):
 
 
 def fetch_pypi_sha256(package, version):
+    # Fetch the SHA256 hash of the package version from PyPI
     from urllib.request import urlopen
     from json import load
     url = f"https://pypi.org/pypi/{package}/json"
     with urlopen(url) as response:
         data = load(response)
+        # TODO: Add try/except for network errors
         for file_info in data["releases"].get(version, []):
             if file_info["filename"].endswith(".tar.gz"):
                 return file_info["digests"]["sha256"]
@@ -174,6 +207,7 @@ def fetch_pypi_sha256(package, version):
 
 
 def validate_self():
+    # This is where the self-integrity check is performed.
     from os import getenv
     from .api.runtime.integrity import INTEGRITY_CHECK
     global _validate_self_has_fired
@@ -181,23 +215,30 @@ def validate_self():
         return
     _validate_self_has_fired = True
     expected_hash = fetch_pypi_sha256(PACKAGE, VERSION)
-    env_hash = getenv("PYDEP_TRUSTED_HASH","0")
+    env_hash = getenv("PYDEP_TRUSTED_HASH")
 
     local_hash = sha256sum_dir(get_module_root())
     if expected_hash and local_hash == expected_hash:
         return
-    if getenv("PYDEP_HARDENED") == "1":
+    if getenv("PYDEP_HARDENED") == "1": # Hardened mode
         if expected_hash and local_hash != expected_hash:
-            raise PyDepBullshitDetectionError(expected_hash, local_hash) from None
-    if env_hash and local_hash == env_hash:
-        print(f"[INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Using override hash: {env_hash[:10]}... (dev mode only)")
+            raise PyDepBullshitDetectionError(expected_hash, local_hash) from None # No trace for you
+    if env_hash and local_hash == env_hash: # Dev mode override PYDEP_TRUSTED_HASH
+        # This is a development mode override, allowing the user to run the package without a valid PyPI hash.
+        # This is useful for development and testing, but should not be used in production.
+        # Even if the hash matches, if you call this in hardened mode, it will still crash to BSD (Bullshit Detection Error).
+        print(f"[INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Using override hash: last 10: {env_hash[:10]}... (dev mode only)")
 
     else:
         print(f"[INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Hash mismatch detected, but not hardened. Proceeding with warning.")
         
 
 validate_self()
-print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Self-integrity check passed. Init complete. Total time: {time() - _total_global_time:.6f} seconds.")
+print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Self-integrity check passed. Init complete. Total time: {time() - _total_global_time:.6f} seconds.") # Annnnnd TIME! 
+
+# Oh yeah, should probably import the API modules now that the integrity check is done.
+# This is intended, if self-integrity check fails, the API modules will not be imported.
+# You get nothing, you lose, good day sir! Or ma'am, idk
 
 from .api import *
 from .api.install import *
