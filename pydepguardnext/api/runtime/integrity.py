@@ -174,6 +174,9 @@ def start_patrol():
     random_check_thread = Thread(target=_background_rpng_check, daemon=True)
     random_check_thread.name = ("RandomCheckThread" + random.randbytes(16).hex())
     integrity_thread1.start()
+    integrity_thread2.start()
+    integrity_thread3.start()
+    integrity_thread4.start()
     random_check_thread.start()
     global INTEGRITY_WATCHDOG_STARTED, INTEGRITY_WATCHDOG
     INTEGRITY_WATCHDOG_STARTED = True
