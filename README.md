@@ -1,5 +1,9 @@
 # PyDepGuard: Python's first secure runtime attestation framework
 
+## New to current version:
+- [ea8081f](https://github.com/nuclear-treestump/pylock-dependency-lockfile/commit/ea8081f3b3444014e1e21a4eacce066657b956d7) - latest - Added Temporal Timeboxing wrapper to all functions. This can reject calls if they fall outside accepted window, and will be controllable through PYDEP_SEC_TIMING
+- [2e718c7](https://github.com/nuclear-treestump/pylock-dependency-lockfile/commit/2e718c7bc5407fa307ca44d6680b7998d5781d55) - Signed functions with signature in .sigstore + GPG Signed package
+
 ## [Introduction](#introduction)
 PyDepGuardNext is the beta package for `PyDepGuard`. PyDepGuardNext is a secure-by-default, stdlib-only runtime enforcement layer for Python scripts and modules. It performs:
 - Runtime attestation
