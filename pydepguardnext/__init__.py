@@ -24,7 +24,7 @@ SIGSTORE_PUBKEY = MappingProxyType({
 
 _validate_self_has_fired = False
 PACKAGE = "pydepguardnext"
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 _written_incidents = set()
 _total_global_time = time.time()
 

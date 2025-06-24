@@ -1,7 +1,7 @@
 [project]
-name = "pydepguard"
-version = "3.0.1"
-description = "PyDepGuard PyLock: A gatekeeper dependency validator for Python scripts"
+name = "pydepguardnext"
+version = "2.0.1"
+description = "PyDepGuard (Next): A gatekeeper dependency validator for Python scripts. Beta branch for new features"
 authors = [{ name = "0xIkari", email = "zachary@zachary-miller.com" }]
 license = { text = "Modified MIT: attribution required for commercial use" }
 readme = "README.md"
@@ -22,14 +22,12 @@ classifiers = [
 
 [tool.setuptools]
 license-files = ["LICENSE.md"]
-packages = ["pydepguard", "pydepguard.pylock"]
+packages = ["pydepguardnext"]
 
 [tool.setuptools.package-data]
-"pydepguard.pylock" = ["known_deps.pydepcache"]
+"pydepguardnext" = [".sigstore"]
 
-[project.scripts]
-pylock = "pydepguard.pylock.cli:main"
-pydepguard = "pydepguard.pylock.cli:main"
+
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]
