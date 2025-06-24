@@ -250,6 +250,7 @@ Most Python-only Docker containers exist just to manage deps. PyDepGuardNext mak
 | Sealed runtime available (WIP)               | ✅                | ❌                | ❌          | ✅              | ❌        | ❌                    |
 | Onboarding Time| ✅✅✅✅✅| ⚠️ |	⚠️ 	|❌  | 	⚠️ |	❌|
 |Zero Trust Runtime| ✅ (Nobody else does this)|❌|❌|❌|❌|❌|
+| Trusted Computing Base w/ Temporal Attestation| ✅ (Nobody else does this)|❌|❌|❌|❌|❌|
 
 PyOxidizer requires compilation, loses introspection, and lacks runtime tamper detection. 
 
@@ -270,6 +271,9 @@ This is no different than invoking python <script.py>, just in a secure venv.
 - ✅ Detection-resistant runtime trapdoor closures
 - ✅ Can serve as a serverless drop-in or mini-EDR
 - ✅ Easier than Docker for pure Python workloads
+- ✅ Full TCB from the interpreter with temporal attestation and blockage against time-travel attacks.
+
+# Let me just repeat that: This is Zero Trust Runtime Attestation, in an interpreted, mutable language.
 
 ## Future Plans
 - Emit pyproject.toml snippets for updated dependency mapping
