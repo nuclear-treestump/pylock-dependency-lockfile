@@ -82,10 +82,10 @@ Linked traceback omitted intentionally.
 
 ## [Trust and Verification](#trust)
 - ✅ All releases GPG signed (done)
-- Interpreter and venv hashes checked at runtime
+- ✅ Interpreter and venv hashes checked at runtime
 - ✅ Public key embedded for function signature validation (done)
-- Audit log written for each detection: pydepguard_audit.log
-- No 3rd party runtime deps. All functionality from Python's stdlib.
+- ✅ Audit log written for each detection: pydepguard_audit.log and pydepguard.log
+- ✅ No 3rd party runtime deps. All functionality from Python's stdlib.
 
 ### 🔐 GPG Signing
 
