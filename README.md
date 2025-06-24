@@ -87,6 +87,23 @@ Linked traceback omitted intentionally.
 - Audit log written for each detection: pydepguard_audit.log
 - No 3rd party runtime deps. All functionality from Python's stdlib.
 
+### 🔐 GPG Signing
+
+Releases are signed with the following GPG key:
+
+- **UID:** `0xIkari <zachary@zachary-miller.com>`
+- **Key ID:** `CEC368E9E8F669B8`
+- **Fingerprint:** `5086 1AFA BE96 B038 8D93 9D97 CEC3 68E9 E8F6 69B8`
+- **Keyserver:** `[https://keyserver.ubuntu.com/pks/lookup?search=CEC368E9E8F669B8&op=index](https://keyserver.ubuntu.com/pks/lookup?search=CEC368E9E8F669B8&op=index)`
+
+You can verify downloaded artifacts using:
+
+```bash
+gpg --recv-keys CEC368E9E8F669B8
+gpg --verify pydepguardnext-<version>.tar.gz.asc pydepguardnext-<version>.tar.gz
+```
+
+
 ## [Current Capabilities](#current-capabilities)
 Currently, PyDepGuard can:
 - Analyze and install missing dependencies on a script, **EVEN if you don't have `requirements.txt` or other package management files**. 
