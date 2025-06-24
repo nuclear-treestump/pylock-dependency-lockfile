@@ -1,6 +1,6 @@
 [project]
 name = "pydepguardnext"
-version = "2.0.1"
+version = "2.0.2"
 description = "PyDepGuard (Next): A gatekeeper dependency validator for Python scripts. Beta branch for new features"
 authors = [{ name = "0xIkari", email = "zachary@zachary-miller.com" }]
 license = { text = "Modified MIT: attribution required for commercial use" }
