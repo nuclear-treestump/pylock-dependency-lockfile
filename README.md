@@ -94,7 +94,7 @@ Releases are signed with the following GPG key:
 - **UID:** `0xIkari <zachary@zachary-miller.com>`
 - **Key ID:** `CEC368E9E8F669B8`
 - **Fingerprint:** `5086 1AFA BE96 B038 8D93 9D97 CEC3 68E9 E8F6 69B8`
-- **Keyserver:** `[https://keyserver.ubuntu.com/pks/lookup?search=CEC368E9E8F669B8&op=index](https://keyserver.ubuntu.com/pks/lookup?search=CEC368E9E8F669B8&op=index)`
+- **Keyserver:** [https://keyserver.ubuntu.com/pks/lookup?search=CEC368E9E8F669B8&op=index](https://keyserver.ubuntu.com/pks/lookup?search=CEC368E9E8F669B8&op=index)
 
 You can verify downloaded artifacts using:
 
