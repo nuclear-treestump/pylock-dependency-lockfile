@@ -81,9 +81,9 @@ Linked traceback omitted intentionally.
 - CI/CD optimized strict exit codes
 
 ## [Trust and Verification](#trust)
-- All releases GPG signed (WIP)
+- ✅ All releases GPG signed (done)
 - Interpreter and venv hashes checked at runtime
-- Public key embedded for function signature validation (WIP)
+- ✅ Public key embedded for function signature validation (done)
 - Audit log written for each detection: pydepguard_audit.log
 - No 3rd party runtime deps. All functionality from Python's stdlib.
 
@@ -102,6 +102,7 @@ You can verify downloaded artifacts using:
 gpg --recv-keys CEC368E9E8F669B8
 gpg --verify pydepguardnext-<version>.tar.gz.asc pydepguardnext-<version>.tar.gz
 ```
+> tip: Even the function signature database is verifiable as a .sigstore.asc is included at the root of the package. 
 
 
 ## [Current Capabilities](#current-capabilities)
