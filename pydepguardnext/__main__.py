@@ -6,7 +6,9 @@ from pydepguardnext.api.runtime.no_guard import run_without_guard
 from pydepguardnext.api.log.logit import logit, configure_logging, LOG_LEVELS
 from pydepguardnext.api.runtime.integrity import INTEGRITY_CHECK
 
+
 def main():
+    from pydepguardnext import _log, get_gtime
     parser = argparse.ArgumentParser(
         description="PyDepGuard CLI v4.0.0\nMade by 0xIkari\nGet it here: https://github.com/nuclear-treestump/pylock-dependency-lockfile\nIf this helped you, please consider sponsoring. Thank you!\n\n"
                     "Supports direct script execution with optional repair.\n"
@@ -40,27 +42,39 @@ def main():
     parser.add_argument("--daemon-log-file", default=None, help="Optional log file path for the daemon (default: pydepguard_daemon.log)")
     parser.add_argument("--daemon-noprint", action="store_true", help="Disable console output for daemon logs")
     parser.add_argument("--daemon-format", default="text", choices=["text", "json"], help="Set log format for daemon logs (default: text)")
+    parser.add_argument("--daemon-allow-remote", action="store_true", help="Allow remote access to the daemon. This will allow connections from any IP address. This is useful for running the daemon in a public environment where you want external access. Note that this mode is experimental and may not work as expected. Use at your own risk.")
+    parser.add_argument("--use-syslog", action="store_true", help="Use syslog for logging. Must provide a --syslog-config file. This is useful for integrating PyDepGuard with system logging services. Note that this mode is experimental and may not work as expected. Use at your own risk.")
+    parser.add_argument("--syslog-config", default=None, help="Path to the syslog configuration file. This file can contain additional settings for syslog such as server address, port, etc. If not provided, the daemon will use default settings. Note that this mode is experimental and may not work as expected. Use at your own risk.")
+    parser.add_argument("--syslog-level", default="info", choices=["debug", "info", "warning", "error", "critical"],
+                        help="Set the syslog logging level (default: info)")
+    parser.add_argument("--log-custom-http-output", action="store_true", help="Enable custom HTTP output for logs. This will send logs to a custom HTTP endpoint. You must provide a --log-http-endpoint. This is useful for integrating PyDepGuard with external logging.")
+    parser.add_argument("--log-http-endpoint", default=None, help="HTTP endpoint to send logs to. This is required if --log-custom-http-output is enabled. This is useful for integrating PyDepGuard with external logging services.")
+    # parser.add_argument("--")
 
     args = parser.parse_args()
     script_path = Path(args.script).resolve()
+    skip_print = False
+    if args.noprint:
+        skip_print = True
 
     if args.log_file:
-        print(f"[pydepguard.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Logging to file: {args.log_file} (Use --log-file to specify a different path)")
+        (print(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Logging to file: {args.log_file} (Use --log-file to specify a different path)") if not skip_print else _log.append(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Logging to file: {args.log_file} (Use --log-file to specify a different path)"))
 
     if args.log_level:
-        print(f"[pydepguard.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Setting log level to: {args.log_level}")
+        (print(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Setting log level to: {args.log_level}") if not skip_print else _log.append(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Setting log level to: {args.log_level}"))
 
     if args.format:
-        print(f"[pydepguard.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Setting log format to: {args.format}")
+        (print(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Setting log format to: {args.format}") if not skip_print else _log.append(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Setting log format to: {args.format}"))
 
     if args.noprint:
-        print(f"[pydepguard.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Console output disabled for logs")
+        (print(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Console output disabled for logs") if not skip_print else _log.append(f"[{get_gtime()}] [.__main__] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Console output disabled for logs"))
 
     configure_logging(
         level=(args.log_level or "debug"),
         to_file=(args.log_file or "pydepguard.log"),
         fmt=(args.format or "text"),
-        print_enabled=not args.noprint
+        print_enabled=not args.noprint,
+        initial_logs=_log
     )
 
     if not script_path.exists():

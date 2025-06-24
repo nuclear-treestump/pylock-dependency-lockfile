@@ -5,7 +5,7 @@ from pathlib import Path
 import importlib.util
 
 
-def test_init_validate_self(capsys):
+def test_init_validate_self():
     def get_module_root():
         spec = importlib.util.find_spec("pydepguardnext")
         if spec is None or not spec.origin:
@@ -27,11 +27,11 @@ def test_init_validate_self(capsys):
         return h.hexdigest()
     os.environ["PYDEP_TRUSTED_HASH"] = sha256sum_dir(get_module_root())
     import pydepguardnext
+    from pydepguardnext import _log 
     pydepguardnext.log_incident("test", "test", "test", "test")
     pydepguardnext.validate_self()
-    captured = capsys.readouterr()
-    print(captured.out)
-    assert "⚠ Using override hash:" in captured.out
+    assert "⚠ Using override hash:" in str(_log)
+    print("\n".join(_log))
 
 
 

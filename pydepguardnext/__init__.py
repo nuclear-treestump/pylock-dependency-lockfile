@@ -1,4 +1,4 @@
-from time import time
+import time
 # This is a self-integrity check for the PyDepGuardNext package.
 # It ensures that the package has not been tampered with and is running in a secure environment
 # I am aware of how much this looks like malware, but I assure you, it is not.
@@ -19,9 +19,29 @@ _validate_self_has_fired = False
 PACKAGE = "pydepguardnext"
 VERSION = "2.0.1"
 _written_incidents = set()
-_total_global_time = time()
+_total_global_time = time.time()
 
+import sys
+import io
 
+PRINT_CAPTURE = io.StringIO()
+
+def start_capture():
+    sys.stdout = PRINT_CAPTURE
+
+def stop_capture():
+    sys.stdout = sys.__stdout__
+
+def get_capture_log():
+    return PRINT_CAPTURE.getvalue().splitlines()
+
+def get_gtime():
+    gtime_calc = time.time() - _total_global_time
+    return gtime_calc # This is the global time since the start of the package.
+
+start_capture() 
+# Start capturing print output to a StringIO object. This is because logit cannot be started before the integrity check is done, and we need to capture the output for logging later.
+# Otherwise circular import hell.
 
 def log_incident(incident_id, expected, found, context="validate_self"):
     # This function logs an incident of tampering detected in the package.
@@ -53,7 +73,7 @@ def log_incident(incident_id, expected, found, context="validate_self"):
         with open("pydepguard_audit.log", "a", encoding="utf-8") as f:
             f.write(dumps(log_entry) + "\n")
     except Exception as e:
-        print(f"[INIT] [pydepguard] ⚠ Audit log write failed: {e}")
+        print(f"[{get_gtime()}] [INIT] [pydepguard] ⚠ Audit log write failed: {e}")
 
 class PyDepBullshitDetectionError(Exception):
     # This exception is raised when the self-integrity check fails.
@@ -113,12 +133,12 @@ def fingerprint_system():
         "pydepguard_package": PACKAGE,
         "pydepguard_version": VERSION
     }
-    print("[INIT] [pydepguard] System fingerprint:")
+    print(f"[{get_gtime()}] [INIT] [pydepguard] System fingerprint:")
     for k, v in fingerprint.items():
         print(f"  {k}: {v}")
     from hashlib import sha256
     from json import dumps
-    print("[INIT] Fingerprint hash:", sha256(dumps(fingerprint, sort_keys=True).encode()).hexdigest()) # I will be using this hash to verify the integrity of the environment later on.
+    print(f"[{get_gtime()}] [INIT] Fingerprint hash:", sha256(dumps(fingerprint, sort_keys=True).encode()).hexdigest()) # I will be using this hash to verify the integrity of the environment later on.
     # TODO: Add more fingerprinting data, like installed packages, environment variables, etc. to INTEGRITY_CHECK
 
 
@@ -126,15 +146,15 @@ from platform import python_version
 from sys import executable
 from uuid import uuid4
 jit_check_uuid = uuid4()
-print(f"[INIT] [pydepguard] Integrity Check UUID: {jit_check_uuid}")
+print(f"[{get_gtime()}] [INIT] [pydepguard] Integrity Check UUID: {jit_check_uuid}")
 from .api.runtime.integrity import jit_check, start_patrol, run_integrity_check
 fingerprint_system()
-print(f"[INIT] [pydepguard] Bullshit Detection System activating.")
+print(f"[{get_gtime()}] [INIT] [pydepguard] Bullshit Detection System activating.")
 JIT_INTEGRITY_CHECK = jit_check(jit_check_uuid)
 start_patrol()
-print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Background integrity patrol started.")
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Background integrity patrol started.")
  # This is the time it took to run the first integrity check, which is the JIT integrity check.
-print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] First check: {run_integrity_check():.6f} seconds. JIT Integrity Check Snapshot: {JIT_INTEGRITY_CHECK}")
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] First check: {run_integrity_check():.6f} seconds. JIT Integrity Check Snapshot: {JIT_INTEGRITY_CHECK}")
 
 from .api.log.logit import configure_logging
 
@@ -227,18 +247,22 @@ def validate_self():
         # This is a development mode override, allowing the user to run the package without a valid PyPI hash.
         # This is useful for development and testing, but should not be used in production.
         # Even if the hash matches, if you call this in hardened mode, it will still crash to BSD (Bullshit Detection Error).
-        print(f"[INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Using override hash: last 10: {env_hash[:10]}... (dev mode only)")
+        print(f"[{get_gtime()}] [INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Using override hash: last 10: {env_hash[:10]}... (dev mode only)")
 
     else:
-        print(f"[INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Hash mismatch detected, but not hardened. Proceeding with warning.")
-        
+        print(f"[{get_gtime()}] [INIT] [pydepguard] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] ⚠ Hash mismatch detected, but not hardened. Proceeding with warning.")
+
 
 validate_self()
-print(f"[INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Self-integrity check passed. Init complete. Total time: {time() - _total_global_time:.6f} seconds.") # Annnnnd TIME! 
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Self-integrity check passed. Init complete. Total time: {time.time() - _total_global_time:.6f} seconds.") # Annnnnd TIME!
 
 # Oh yeah, should probably import the API modules now that the integrity check is done.
 # This is intended, if self-integrity check fails, the API modules will not be imported.
 # You get nothing, you lose, good day sir! Or ma'am, idk
+
+stop_capture() # Done with boot, now getting log output
+
+_log = get_capture_log() # Get the captured log output
 
 from .api import *
 from .api.install import *

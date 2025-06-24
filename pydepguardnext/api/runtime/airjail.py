@@ -180,5 +180,5 @@ def prepare_fakeroot(
     if enable_sandbox:
         enable_sandbox_open()
 
-    logit(f"Prepared fakeroot at {fakeroot_path}", "i")
+    logit(f"Prepared fakeroot at {fakeroot_path}", "i", source=f"{logslug}.{prepare_fakeroot.__name__}")
     return app_dir

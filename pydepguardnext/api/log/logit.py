@@ -7,6 +7,7 @@ from typing import Any, Optional
 from pydepguardnext.api.auth.guard import SECRETS_LIST
 from pydepguardnext.api.runtime.integrity import INTEGRITY_CHECK
 from datetime import datetime, timezone
+from pydepguardnext import get_gtime, _total_global_time
 import inspect
 
 def resolve_source(source="auto", max_depth=5):
@@ -142,15 +143,19 @@ def logit(
     if trace and stacktrace:
         logger.exception(stacktrace, stacklevel=stacklevel)
 
-    if source:
-        message = f"[{source}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
+    if source == "internal.init":
+        message = message # No change to pre-configured logs from __init__.py
+        lvl = logging.INFO
+
+    elif source:
+        message = f"[{get_gtime()}] [{source}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
     else:
-        message = f"[{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
+        message = f"[{get_gtime()}] [SOURCE MISSING] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
 
     logger.log(lvl, message, stacklevel=stacklevel, **kwargs)
 
 
-def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True):
+def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True, initial_logs: list[str] = []):
     logger = logging.getLogger("pydepguard")
     logger.handlers.clear()
 
@@ -175,7 +180,5 @@ def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True
     _LOGGING_STATE["enabled"] = True
     _LOGGING_STATE["format"] = fmt
 
-
-
-
-
+    for log in initial_logs:
+        logit(log, level=level, trace=False, log_enable=True, stacklevel=2, source="internal.init")
