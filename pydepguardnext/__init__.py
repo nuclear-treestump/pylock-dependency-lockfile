@@ -1,4 +1,16 @@
 import time
+_t0 = time.perf_counter()
+from types import MappingProxyType
+GLOBAL_CLOCK = MappingProxyType({"T0": time.perf_counter()})
+import sys
+import io
+
+PRINT_CAPTURE = io.StringIO()
+
+def start_capture():
+    sys.stdout = PRINT_CAPTURE
+start_capture()  # Start capturing print output to a StringIO object.
+print(f"[{time.time() - GLOBAL_CLOCK['T0']:.6f}] [INIT] [INSECURE] [pydepguard] Initializing PyDepGuardNext... T0 = {_t0:.6f} seconds since boot.")
 # This is a self-integrity check for the PyDepGuardNext package.
 # It ensures that the package has not been tampered with and is running in a secure environment
 # I am aware of how much this looks like malware, but I assure you, it is not.
@@ -16,7 +28,6 @@ import time
 # If you find any issues, please report them there.
 # Thank you for your understanding and for using PyDepGuardNext!
 
-from types import MappingProxyType
 SIGSTORE_PUBKEY = MappingProxyType({
     "n": int("0x9bf8b66bdc4cf01fb6c7b69a52bdfba451da6337932ada7ba3df605c064eaf9d02b6ac891d6b334b266cb43b83678a057ef057a3a2adaf5adbec6df3ca7dc10f50e615ca99e5c1ca35a33b44e52457f165a63ca2b05b78ebd31307aa80776eed9d89aec4cff11d41a88c900a3f48c0236b524912904fda2ca47fd229ff9c19f90a1132cba3226156b42146e44eee697d763505f636b7bbb6c276731318f4d532efbcd5360ec0ca115d4d4cabcb6e824506640cfe59c8bd5a48feb0d6cf2bd297805dcffb3738d6caaad27b9ea500a59c2f891e29e6312ba695132bcd95c346a1542b15f6a64b099da0e86bb5cec2a3fd1fbf221c50126cc7159972884fe4034d", 16),
     "e": 65537
@@ -28,14 +39,6 @@ VERSION = "2.0.3"
 _written_incidents = set()
 _total_global_time = time.time()
 
-import sys
-import io
-
-PRINT_CAPTURE = io.StringIO()
-
-def start_capture():
-    sys.stdout = PRINT_CAPTURE
-
 def stop_capture():
     sys.stdout = sys.__stdout__
 
@@ -46,7 +49,6 @@ def get_gtime():
     gtime_calc = time.time() - _total_global_time
     return gtime_calc # This is the global time since the start of the package.
 
-start_capture() 
 # Start capturing print output to a StringIO object. This is because logit cannot be started before the integrity check is done, and we need to capture the output for logging later.
 # Otherwise circular import hell.
 
@@ -81,6 +83,7 @@ def log_incident(incident_id, expected, found, context="validate_self"):
             f.write(dumps(log_entry) + "\n")
     except Exception as e:
         print(f"[{get_gtime()}] [INIT] [pydepguard] ⚠ Audit log write failed: {e}")
+
 
 class PyDepBullshitDetectionError(Exception):
     # This exception is raised when the self-integrity check fails.
@@ -140,13 +143,11 @@ def fingerprint_system():
         "pydepguard_package": PACKAGE,
         "pydepguard_version": VERSION
     }
-    print(f"[{get_gtime()}] [INIT] [pydepguard] System fingerprint:")
-    for k, v in fingerprint.items():
-        print(f"  {k}: {v}")
     from hashlib import sha256
     from json import dumps
     print(f"[{get_gtime()}] [INIT] Fingerprint hash:", sha256(dumps(fingerprint, sort_keys=True).encode()).hexdigest()) # I will be using this hash to verify the integrity of the environment later on.
     # TODO: Add more fingerprinting data, like installed packages, environment variables, etc. to INTEGRITY_CHECK
+    return fingerprint, sha256(dumps(fingerprint, sort_keys=True).encode()).hexdigest()
 
 
 from platform import python_version
@@ -155,7 +156,8 @@ from uuid import uuid4
 jit_check_uuid = uuid4()
 print(f"[{get_gtime()}] [INIT] [pydepguard] Integrity Check UUID: {jit_check_uuid}")
 from .api.runtime.integrity import jit_check, start_patrol, run_integrity_check
-fingerprint_system()
+fingerprint, fingerhash = fingerprint_system()
+
 print(f"[{get_gtime()}] [INIT] [pydepguard] Bullshit Detection System activating.")
 JIT_INTEGRITY_CHECK = jit_check(jit_check_uuid)
 start_patrol()
@@ -192,6 +194,38 @@ for fqname, result in SIGVERIFIED.items():
 print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] SIGVERIFY Stage 2 complete. {len(SIGVERIFIED)} of {_total_count - _fail_count} functions verified.")
 _sigfrozen = time.time()
 print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] SIGVERIFY frozen in {_sigfrozen - _sigtime:.6f} seconds.")
+
+print_copy = f"""
+PyDepGuardNext {PACKAGE} {VERSION}.
+Made by 0xIkari
+The first ever zero-trust runtime integrity guard for Python packages, with temporal attestation.
+The "BIOS" of Python packages.
+
+SYSTEM FINGERPRINT:
+    Runtime UUID                 : {jit_check_uuid}
+    pydepguardnext Package       : {PACKAGE}
+    Version                      : {VERSION}
+    System Fingerprint Hash      : {fingerhash}
+
+    SYSTEM INFO:
+        Hostname                 : {fingerprint['hostname']}
+        OS                       : {fingerprint['os']}
+        OS Release               : {fingerprint['os_release']}
+        OS Version               : {fingerprint['os_version']}
+        Architecture             : {fingerprint['arch']}
+        Platform                 : {fingerprint['platform']}
+        User                     : {fingerprint['user']}
+
+    PYTHON INFO:
+        Python Build             : {fingerprint['python_build']}
+        Python Compiler          : {fingerprint['python_compiler']}
+        Python Version           : {fingerprint['python_version']}
+        Python Executable Path   : {fingerprint['python_abs_path']}
+        Python Interpreter Hash  : {fingerprint['python_interpreter_hash']}
+        Current Working Directory: {fingerprint['cwd']}
+        Executable Path          : {executable}
+"""
+print(print_copy)
 
 
 from .api.log.logit import configure_logging
@@ -292,6 +326,66 @@ def validate_self():
 
 
 validate_self()
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Timeboxing all functions.")
+import inspect
+import types
+
+from functools import wraps
+
+_PYDEP_LAST_CALL = GLOBAL_CLOCK["T0"]
+
+TIMEBOX_MIN_THRESHOLD = 0.045  # Minimum time since start
+TIMEBOX_MAX_WINDOW = 10       # Max window since last legitimate call
+
+class PyDepDocBrownError(Exception):
+    pass
+
+def timebox_guard(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        global _PYDEP_LAST_CALL
+        now = time.perf_counter()
+        delta_start = now - GLOBAL_CLOCK["T0"]
+        delta_last = now - _PYDEP_LAST_CALL
+
+        if delta_start < TIMEBOX_MIN_THRESHOLD:
+            raise PyDepDocBrownError(
+                f"[TooEarly] {func.__name__} called at {delta_start:.6f}s (<{TIMEBOX_MIN_THRESHOLD}s)"
+            )
+        if delta_last > TIMEBOX_MAX_WINDOW:
+            raise PyDepDocBrownError(
+                f"[TooLate] {func.__name__} called after {delta_last:.6f}s since last valid call (> {TIMEBOX_MAX_WINDOW}s)"
+            )
+
+        _PYDEP_LAST_CALL = now  # Update checkpoint
+        return func(*args, **kwargs)
+
+    setattr(wrapper, "__pydepguard_verified__", True)
+    return wrapper
+
+def apply_global_timebox_and_tag():
+    base_path = Path(__file__).parent
+    for py_file in base_path.rglob("*.py"):
+        if py_file.name == "__init__.py":
+            continue
+        mod_path = ".".join(["pydepguardnext"] + list(py_file.relative_to(base_path).with_suffix("").parts))
+        try:
+            mod = importlib.import_module(mod_path)
+        except Exception:
+            continue
+
+        for name, obj in inspect.getmembers(mod, inspect.isfunction):
+            if obj.__module__ != mod_path:
+                continue
+            try:
+                unwrapped = inspect.unwrap(obj)
+                if getattr(unwrapped, "__pydepguard_verified__", False):
+                    continue  # already wrapped
+                wrapped = timebox_guard(unwrapped)
+                setattr(mod, name, wrapped)
+            except Exception:
+                continue
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Global timebox guard applied to all functions. Good luck...")
 print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Self-integrity check passed. Init complete. Total time: {time.time() - _total_global_time:.6f} seconds.") # Annnnnd TIME!
 
 # Oh yeah, should probably import the API modules now that the integrity check is done.
