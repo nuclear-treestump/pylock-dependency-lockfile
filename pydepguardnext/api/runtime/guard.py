@@ -30,13 +30,18 @@ def run_with_repair(script_path: str, max_retries: int = 5):
             if cached_result:
                 logit(f"Using cached result for {script_path}", "i", source=f"{logslug}.{run_with_repair.__name__}")
                 is_cached = True
-            result, deps = install_missing_and_retry(script_path, timecheck=g_time, cached=is_cached)
+            result, deps, _timing = install_missing_and_retry(script_path, timecheck=g_time, cached=is_cached)
             if not is_cached:
                 sha = _compute_sha256(script_path)
                 cache_data = {
                     "sha256": sha,
-                    "deps": deps  
+                    "deps": deps,
+                    "download_time_total": _timing["download"],
+                    "url_check_time_total": _timing["url"],
                 }
+                logit(f"Total dependency download time: {_timing['download']:.2f} seconds", "i", source=f"{logslug}.{run_with_repair.__name__}")
+                logit(f"Total URL check time: {_timing['url']:.2f} seconds", "i", source=f"{logslug}.{run_with_repair.__name__}")
+                logit(f"Total time taken for all non-runtime operations: {(_timing['download'] + _timing['url']):.2f} seconds", "i", source=f"{logslug}.{run_with_repair.__name__}")
                 save_cache(script_path, cache_data)
                 logit(f"Cache saved for {script_path} with SHA {sha}", "i", source=f"{logslug}.{run_with_repair.__name__}")
             else:

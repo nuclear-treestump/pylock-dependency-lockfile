@@ -16,12 +16,17 @@ from typing import Tuple
 import hashlib
 from pathlib import Path
 from .integrity import INTEGRITY_CHECK, run_integrity_check, jit_check
+from collections import defaultdict
 
 JIT_INTEGRITY_CHECK = jit_check
 _original_import = builtins.__import__
 _original_importlib_import_module = importlib.import_module
 _global_timecheck = 0
 _current_modules = metadata.distributions()
+_timing = float()
+_urltiming = float()
+_timepermodule = defaultdict(list)
+
 
 logslug = "api.runtime.importer"
 
@@ -72,6 +77,8 @@ def _log(name):   #pragma: no cover
 
 def _package_exists(name: str) -> bool:
     check_time = time.time()
+    global _urltiming
+    global _timepermodule
     try:
         if name in _known_aliases:
             logit(f"Skipping PyPI check for known alias: {name} as it is an alias for {_known_aliases[name]}.", "i", source=f"{logslug}.{_package_exists.__name__}")
@@ -80,7 +87,9 @@ def _package_exists(name: str) -> bool:
             logit(f"Skipping PyPI check for known module: {name}, as module does not exist.", "i", source=f"{logslug}.{_package_exists.__name__}")
             return False
         with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json", timeout=2) as resp:
-            logit(f"Time taken to check package {name}: {time.time() - check_time:.2f} seconds", "i", source=f"{logslug}.{_package_exists.__name__}")
+            _urltime = time.time() - check_time
+            _urltiming += _urltime
+            logit(f"Time taken to check package {name}: {_urltime:.2f} seconds", "i", source=f"{logslug}.{_package_exists.__name__}")
             return resp.status == 200
     except Exception:
         logit(f"Time taken to check package {name}: {time.time() - check_time:.2f} seconds", "i", source=f"{logslug}.{_package_exists.__name__}")
@@ -122,7 +131,11 @@ class AutoInstallFinder(importlib.abc.MetaPathFinder):
                 logit(f"Installing {fullname} ...", "i", source=f"{logslug}.{type(self).__name__}")
                 install_time = time.time()
                 subprocess.check_call([sys.executable, "-m", "pip", "install", fullname, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                logit(f"Installed {fullname} successfully in {time.time() - install_time:.2f} seconds", "i", source=f"{logslug}.{type(self).__name__}")
+                global _timing
+                _install_time = time.time() - install_time
+                _timing += _install_time
+                logit(f"Installed {fullname} successfully in {_install_time:.2f} seconds", "i", source=f"{logslug}.{type(self).__name__}")
+                _timepermodule[fullname].append(_install_time)  
                 return importlib.util.find_spec(fullname)
             except Exception as e:
                 logit(f"Failed to auto-install {fullname}: {e}", "e", source=f"{logslug}.{type(self).__name__}")
@@ -178,7 +191,11 @@ def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
             logit(f"Installing {pkg_name} ...", "i", source=f"{logslug}.{_patched_import.__name__}")
             install_time = time.time()
             subprocess.check_call([sys.executable, "-m", "pip", "install", pkg_name, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            logit(f"Installed {pkg_name} successfully in {time.time() - install_time:.2f} seconds", "i", source=f"{logslug}.{_patched_import.__name__}")
+            global _timing, _timepermodule
+            _install_time = time.time() - install_time
+            _timing = _timing + (_install_time)
+            logit(f"Installed {pkg_name} successfully in {_install_time:.2f} seconds", "i", source=f"{logslug}.{_patched_import.__name__}")        
+            _timepermodule[pkg_name].append(_install_time)    
         except subprocess.CalledProcessError as pip_fail:
             logit(f"Installation of {pkg_name} failed: {pip_fail}", "w", source=f"{logslug}.{_patched_import.__name__}")
             raise pip_fail
@@ -214,7 +231,11 @@ def _patched_importlib_import_module(name, package=None):
                 logit(f"Installing {top} ...", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                 install_time = time.time()
                 subprocess.check_call([sys.executable, "-m", "pip", "install", top, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                logit(f"Installed {top} in {time.time() - install_time:.2f} seconds", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+                global _timing, _timepermodule
+                _install_time = time.time() - install_time
+                _timing = _timing + (_install_time)
+                _timepermodule[top].append(_install_time)    
+                logit(f"Installed {top} in {_install_time:.2f} seconds", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                 return _original_importlib_import_module(name, package)
         else:
             logit(f"Skipping auto-install for {top} Reason: {reason or 'unknown'}", "d", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
@@ -229,21 +250,72 @@ def patch_all_import_hooks():
         sys.meta_path.insert(0, AutoInstallFinder())
 
 
+def stats_from_import(_timepermodule):
+    all_times = [t for durations in _timepermodule.values() for t in durations]
+    if not all_times:
+        return {}, 0.0, 0.0
+
+    sorted_times = sorted(all_times)
+    mid = len(sorted_times) // 2
+    median = (
+        sorted_times[mid]
+        if len(sorted_times) % 2 == 1
+        else (sorted_times[mid - 1] + sorted_times[mid]) / 2
+    )
+    average = sum(all_times) / len(all_times)
+
+    stats = {
+        pkg: {
+            "total": sum(times),
+            "count": len(times),
+            "max": max(times),
+            "min": min(times),
+            "avg": sum(times) / len(times),
+        }
+        for pkg, times in _timepermodule.items()
+    }
+    return stats, median, average
+
+def generate_import_suggestions(stats: dict, median: float, average: float, threshold_factor: float = 2.0) -> list[str]:
+    suggestions = []
+    for pkg, data in stats.items():
+        avg_time = data["avg"]
+        if avg_time > average * threshold_factor or avg_time > median * threshold_factor:
+            suggestions.append(
+                f"[IMPROVEMENT] Consider prewarming '{pkg}': avg import {avg_time:.3f}s over {data['count']} loads"
+            )
+    return suggestions
+
+
+
 def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
-    global _global_timecheck
+    import contextlib
+    import io
+    global _global_timecheck, _timepermodule
     _global_timecheck = timecheck or time.time()
     if not cached:
         patch_all_import_hooks()
-    result = runpy.run_path(script_path)
+
+    combined = io.StringIO()
+    
+    with contextlib.redirect_stdout(combined), contextlib.redirect_stderr(combined):
+        result = runpy.run_path(script_path)
+    
+    logit(combined.getvalue(), "u", source="USER_SCRIPT", redir_file="pydepguard.runtime.log")
+    global _timing, _urltiming
+    timeblock = {"url": _urltiming, "download": _timing}
     dists = metadata.distributions()
-    dist_list = list()
-    for dist in dists:
-        dist_list.append({
-            "name": dist.metadata["Name"],
-            "version": dist.version,
-            "summary": dist.metadata.get("Summary", ""),
-            "homepage": dist.metadata.get("Home-page", ""),
-            "author": dist.metadata.get("Author", ""),
-            "license": dist.metadata.get("License", ""),
-        })
-    return result, dist_list
+    dist_list = [{
+        "name": dist.metadata["Name"],
+        "version": dist.version,
+        "summary": dist.metadata.get("Summary", ""),
+        "homepage": dist.metadata.get("Home-page", ""),
+        "author": dist.metadata.get("Author", ""),
+        "license": dist.metadata.get("License", ""),
+    } for dist in dists]
+    stats, median, average = stats_from_import(_timepermodule)
+    suggestions = generate_import_suggestions(stats, median, average)
+    if suggestions:
+        logit(f"Import suggestions: {', '.join(suggestions)}", "i", source=f"{logslug}.{install_missing_and_retry.__name__}")
+
+    return result, dist_list, timeblock

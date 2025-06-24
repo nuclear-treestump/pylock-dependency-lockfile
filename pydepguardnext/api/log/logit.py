@@ -76,6 +76,8 @@ LOG_LEVELS = {
     "3": logging.WARNING,
     "4": logging.INFO,
     "5": logging.DEBUG,
+    "u": 21,
+    "m": 25
 }
 
 REDACT_PATTERNS = [re.compile(re.escape(s)) for s in SECRETS_LIST if s]
@@ -106,6 +108,7 @@ def logit(
     fmt: Optional[str] = None,
     source: Optional[str] = None,
     print_enabled: bool = True,
+    redir_file: Optional[str] = None,
     **kwargs: Any,
 ) -> None:
     active = log_enable if log_enable is not None else _LOGGING_STATE["enabled"]
@@ -147,12 +150,24 @@ def logit(
         message = message # No change to pre-configured logs from __init__.py
         lvl = logging.INFO
 
-    elif source:
+    elif source and source != "USER_SCRIPT":
         message = f"[{get_gtime()}] [{source}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
     else:
         message = f"[{get_gtime()}] [SOURCE MISSING] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
-
-    logger.log(lvl, message, stacklevel=stacklevel, **kwargs)
+    if level not in {"u", "x"}: # DeMorgan issue, so had to use this
+        logger.log(lvl, message, stacklevel=stacklevel, **kwargs)
+    else:
+        if redir_file:
+            # Temporary handler for user_scripts or redirection
+            temp_handler = logging.FileHandler(redir_file)
+            formatter_fmt = fmt if fmt is not None else _LOGGING_STATE["format"]
+            temp_handler.setFormatter(JSONFormatter() if formatter_fmt == "json" else ColoredFormatter("[%(levelname)s] %(message)s"))
+            logger.addHandler(temp_handler)
+            message_list = message.splitlines()
+            for line in message_list:
+                logger.log(lvl, line, stacklevel=stacklevel, **kwargs)
+            logger.removeHandler(temp_handler)
+            temp_handler.close()
 
 
 def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True, initial_logs: list[str] = []):
@@ -174,7 +189,8 @@ def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True
         else:
             file_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
         logger.addHandler(file_handler)
-
+    logging.addLevelName(21, "USER")
+    logging.addLevelName(25, "METRIC")
     logger.setLevel(LOG_LEVELS.get(level[0].lower(), logging.INFO))
 
     _LOGGING_STATE["enabled"] = True
