@@ -14,6 +14,8 @@ INTEGRITY_UUID_FROZEN = False
 INTEGRITY_WATCHDOG_STARTED = False
 SYSLOCK_TIMING = float()
 
+
+
 class WatchdogViolationError(Exception):
     pass
 
@@ -100,6 +102,7 @@ def get_rpng_check():
 
 def _background_rpng_check():
     import random
+    from pydepguardnext import _total_global_time, get_gtime
     while True:
         interval = random.randint(10, 30)
         sleep(interval)
@@ -109,8 +112,8 @@ def _background_rpng_check():
                 print("[INTEGRITY] [api.runtime.integrity] Integrity checks are disabled by environment variable.")
                 return
             else:
-
-                print(f"[INTEGRITY] [api.runtime.integrity]  [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Skipping random integrity check this time.")
+                get_rpng_check()
+                print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Rolling some dice...")
         except Exception as e:
             raise WatchdogViolationError(f"Random integrity check failed: {e}") from None # This is a serious error, we should not continue if this happens.
 

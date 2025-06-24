@@ -1,7 +1,6 @@
-from pydepguard.api.install.parser.json import parse_json_install
-from pydepguard.api.install.parser.cli_install import parse_cli_input
-from pydepguard.api.install.parser.magic import try_magic_parser 
-from pydepguard.api.install.parser.common import ParsedDependency
+from pydepguardnext.api.install.parser.json import parse_json_install
+from pydepguardnext.api.install.parser.cli_install import parse_cli_input 
+from pydepguardnext.api.install.parser.common import ParsedDependency
 
 
 def resolve_install_source(install_args: list[str], source: str | None = None) -> list[ParsedDependency]:

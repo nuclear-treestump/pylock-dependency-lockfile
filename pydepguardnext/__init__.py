@@ -15,6 +15,13 @@ import time
 # https://github.com/nuclear-treestump/pylock-dependency-lockfile
 # If you find any issues, please report them there.
 # Thank you for your understanding and for using PyDepGuardNext!
+
+from types import MappingProxyType
+SIGSTORE_PUBKEY = MappingProxyType({
+    "n": int("0x9bf8b66bdc4cf01fb6c7b69a52bdfba451da6337932ada7ba3df605c064eaf9d02b6ac891d6b334b266cb43b83678a057ef057a3a2adaf5adbec6df3ca7dc10f50e615ca99e5c1ca35a33b44e52457f165a63ca2b05b78ebd31307aa80776eed9d89aec4cff11d41a88c900a3f48c0236b524912904fda2ca47fd229ff9c19f90a1132cba3226156b42146e44eee697d763505f636b7bbb6c276731318f4d532efbcd5360ec0ca115d4d4cabcb6e824506640cfe59c8bd5a48feb0d6cf2bd297805dcffb3738d6caaad27b9ea500a59c2f891e29e6312ba695132bcd95c346a1542b15f6a64b099da0e86bb5cec2a3fd1fbf221c50126cc7159972884fe4034d", 16),
+    "e": 65537
+})
+
 _validate_self_has_fired = False
 PACKAGE = "pydepguardnext"
 VERSION = "2.0.1"
@@ -155,6 +162,37 @@ start_patrol()
 print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Background integrity patrol started.")
  # This is the time it took to run the first integrity check, which is the JIT integrity check.
 print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] First check: {run_integrity_check():.6f} seconds. JIT Integrity Check Snapshot: {JIT_INTEGRITY_CHECK}")
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] JIT Integrity Check complete. Starting SIGVERIFY Stage 2.")
+
+from pydepguardnext.api.runtime.sigverify import validate_all_functions
+import json
+
+from pathlib import Path
+from os import getenv
+sigstore_path = Path(__file__).parent / ".sigstore"
+if not sigstore_path.exists() and getenv("PYDEP_SKIP_SIGVER", "0") != "1":
+    print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] WARNING: .sigstore not found at {sigstore_path}. Skipping signature validation.")
+elif getenv("PYDEP_SKIP_SIGVER", "0") == "1":
+    raise PyDepBullshitDetectionError(
+        expected=".sigstore file missing",
+        found="N/A"
+    )
+_sigtime = time.time()
+res = validate_all_functions(sigstore_path=sigstore_path)
+from pydepguardnext.api.runtime.sigverify import SIGVERIFIED
+start_capture() # Start capturing print output again, now that the integrity check is done.
+_fail_count = 0
+_total_count = len(SIGVERIFIED)
+for fqname, result in SIGVERIFIED.items():
+    if not result["valid"]:
+        print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] ERROR: Function {fqname} failed validation: {result.get('error', 'Unknown error')}")
+        log_incident(fqname, result.get("expected", "N/A"), result.get("computed", "N/A"), context="validate_self")
+        _fail_count += 1
+
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] SIGVERIFY Stage 2 complete. {len(SIGVERIFIED)} of {_total_count - _fail_count} functions verified.")
+_sigfrozen = time.time()
+print(f"[{get_gtime()}] [INIT] [pydepguard] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] SIGVERIFY frozen in {_sigfrozen - _sigtime:.6f} seconds.")
+
 
 from .api.log.logit import configure_logging
 
