@@ -150,39 +150,58 @@ Only if:
 And even then?
 PyDepBullshitDetectionError fires and kills the interpreter with forensic zipping of venv for audit.
 
-## [Safe from \_\_init__](#init)
+## [Safe from time=0](#init)
+
+### Updated 06/23/2025
+
 Below is a real test output of PyDepGuard's init process:
 ```sh
-[INIT] [pydepguard] Integrity Check UUID: 0675469c-f200-4f95-860f-30f3a59d8849
+Running pytest with args: ['-p', 'vscode_pytest', '--rootdir=c:\\Users\\[REDACTED]\\pylock\\pylock-dependency-lockfile', '--capture=no', 'c:\\Users\\[REDACTED]\\pylock\\pylock-dependency-lockfile\\tests\\test_pydepguard_init.py::test_init_validate_self']
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-8.4.1, pluggy-1.6.0
+rootdir: c:\Users\[REDACTED]\pylock\pylock-dependency-lockfile
+configfile: pytest.ini
+plugins: anyio-4.9.0, cov-6.2.1
+collected 1 item
+
+tests\test_pydepguard_init.py [INIT] [pydepguard] Integrity Check UUID: 6dcf6938-be91-47ca-8909-44aae63427b5
 [INIT] [pydepguard] System fingerprint:
-  hostname: [DESKTOP-REDACTED]
+  hostname: [REDACTED]
   os: Windows
   os_release: 11
   os_version: 10.0.26100
   arch: AMD64
   platform: Windows-11-10.0.26100-SP0
-  user: Ikari
+  user: [REDACTED]
   python_version: 3.12.3
   python_build: ('tags/v3.12.3:f6650f9', 'Apr  9 2024 14:05:25')
   python_compiler: MSC v.1938 64 bit (AMD64)
-  python_abs_path: C:\Users\[redacted]\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
+  python_abs_path: C:\Users\[REDACTED]\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
   python_interpreter_hash: 864530d708039551a2c672ddd65e5900fbc08b0981479679723a5b468f8082bc
-  executable: c:\Users\[redacted]\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
-  cwd: c:\Users\[redacted]\pylock\pylock-dependency-lockfile
+  executable: c:\Users\[REDACTED]\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
+  cwd: c:\Users\[REDACTED]\pylock\pylock-dependency-lockfile
   pydepguard_package: pydepguardnext
-  pydepguard_version: 1.0.0
-[INIT] Fingerprint hash: 0caad1377c53577a70f2c359b780db5bf1e89241972e5c9ec7a8f715855b9445
+  pydepguard_version: 2.0.1
+[INIT] Fingerprint hash: d85fd8244a0f1811488ee0f7cbd9d21f1f3e6eab2659cd25076891fbeeb30dcf
 [INIT] [pydepguard] Bullshit Detection System activating.
-[INIT] [pydepguard] Locking down environment for integrity checks at 0.034222 seconds.
-[INTEGRITY] [api.runtime.integrity] [0675469c-f200-4f95-860f-30f3a59d8849] Background integrity patrol started at 2025-06-23T00:30:36.658965+00:00
-[INIT] [pydepguard] [0675469c-f200-4f95-860f-30f3a59d8849] Background integrity patrol started.
-[INIT] [pydepguard] [0675469c-f200-4f95-860f-30f3a59d8849] System locked down at 0.035222 seconds. Timedelta: 0.001000 seconds.
-[INIT] [pydepguard] [0675469c-f200-4f95-860f-30f3a59d8849] JIT Integrity Check Snapshot: {'importer._patched_import': 2785702873344, 'importer._patched_importlib_import_module': 2785702873664, 'importer.AutoInstallFinder': 2785689548032, 'airjail.maximum_security': 2785702876384, 'airjail.disable_socket_access': 2785702875904, 'airjail.disable_file_write': 2785702875584, 'airjail.disable_network_access': 2785702821248, 'airjail.disable_urllib_requests': 2785702875744, 'airjail.block_ctypes': 2785702291840, 'airjail.enable_sandbox_open': 2785702290880, 'airjail.patch_environment_to_venv': 2785702876224, 'airjail.prepare_fakeroot': 2785702876544, 'logit.logit': 2785702872384, 'global_.jit_check_uuid': '0675469c-f200-4f95-860f-30f3a59d8849'}
-[INIT] [pydepguard] [0675469c-f200-4f95-860f-30f3a59d8849] ⚠ Using override hash: ecb0018d53... (dev mode only)
-[INIT] [pydepguard] [0675469c-f200-4f95-860f-30f3a59d8849] Self-integrity check passed. Init complete. Total time: 0.187707 seconds.
+[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] Absolute last moment of system not sealed at global time:  0.0409 seconds.
+[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] Runtime sealed in 0.000999 seconds.
+[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] Background integrity patrol started at 2025-06-24T01:01:33.507363+00:00 (Global time: 0.0419 seconds). Timedelta from JIT lock to watchdog activation: 0.001002 seconds.
+[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] WATCHDOG PROVISIONED: {'_background_integrity_patrol', '_background_rpng_check'}
+[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] WATCHDOG THREADS: [<Thread(IntegrityPatrolThread440d7b7c47c0a1472ae11cd9ea02fb1c, started daemon 7848)>, <Thread(IntegrityPatrolThreadaedb31b35c95184ee25084f554925d8d, initial daemon)>, <Thread(IntegrityPatrolThread09997b541d645a547a5fea93f05fb43e, initial daemon)>, <Thread(IntegrityPatrolThreadaf0dcd7866f8a3c779cbb66044e5cd7e, initial daemon)>]
+[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] Background integrity patrol started.
+[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] First check: 0.041911 seconds. JIT Integrity Check Snapshot: {'importer._patched_import': 2997836876512, 'importer._patched_importlib_import_module': 2997836876832, 'importer.AutoInstallFinder': 2997823404336, 'logit.logit': 2997836875552, 'airjail.maximum_security': 2997836879712, 'airjail.disable_socket_access': 2997836879232, 'airjail.disable_file_write': 2997836878912, 'airjail.disable_network_access': 2997836878752, 'airjail.disable_urllib_requests': 2997836879072, 'airjail.block_ctypes': 2997836294528, 'airjail.enable_sandbox_open': 2997836824256, 'airjail.patch_environment_to_venv': 2997836879552, 'airjail.prepare_fakeroot': 2997836879872, 'api.runtime.integrity.run_integrity_check': 2997836874752, 'api.runtime.integrity.jit_check': 2997836873952, 'api.runtime.integrity.get_rpng_check': 2997836874112, 'api.runtime.integrity._background_integrity_patrol': 2997836874432, 'api.runtime.integrity._background_rpng_check': 2997836874272, 'api.runtime.integrity.start_patrol': 2997836874592, 'global_.jit_check_uuid': '6dcf6938-be91-47ca-8909-44aae63427b5'}
+[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] ⚠ Using override hash: last 10: 0f932fddc8... (dev mode only)
+[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] Self-integrity check passed. Init complete. Total time: 0.235150 seconds.
+.
+
+============================== 1 passed in 0.32s ==============================
+
 ```
 
-Unless you're able to get around all of my `__init__` checks in \<0.18s, you will be unable to take over runtime. By 0.035s, the PyDepGuard's already locked its id()s and function maps. 
+Unless you're able to get around all of my `__init__` checks in \<0.040s, you will be unable to take over runtime. By 0.035s, the PyDepGuard's already locked its id()s and function maps. 
+
+You have +/- 3ms between runtime temporal attestation and first integrity check. It'd probably be even faster if I didn't have all the print statements.
 
 And if you've run something like `pydepguardnext --run --hardened --script=evil.py`, the script doesn't even get touched until PyDepGuard's init is done. You're already in my context, and PyDepGuard owns execution.
 
