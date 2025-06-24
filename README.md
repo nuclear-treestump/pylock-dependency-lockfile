@@ -170,52 +170,58 @@ PyDepBullshitDetectionError fires and kills the interpreter with forensic zippin
 
 ## [Safe from time=0](#init)
 
-### Updated 06/23/2025
+### Updated 06/24/2025
 
 Below is a real test output of PyDepGuard's init process:
 ```sh
-Running pytest with args: ['-p', 'vscode_pytest', '--rootdir=c:\\Users\\[REDACTED]\\pylock\\pylock-dependency-lockfile', '--capture=no', 'c:\\Users\\[REDACTED]\\pylock\\pylock-dependency-lockfile\\tests\\test_pydepguard_init.py::test_init_validate_self']
+Running pytest with args: ['-p', 'vscode_pytest', '--rootdir=c:\\Users\\Ikari\\pylock\\pylock-dependency-lockfile', '--capture=no', 'c:\\Users\\Ikari\\pylock\\pylock-dependency-lockfile\\tests\\test_pydepguard_init.py::test_init_validate_self']
 ============================= test session starts =============================
 platform win32 -- Python 3.12.3, pytest-8.4.1, pluggy-1.6.0
-rootdir: c:\Users\[REDACTED]\pylock\pylock-dependency-lockfile
+rootdir: c:\Users\Ikari\pylock\pylock-dependency-lockfile
 configfile: pytest.ini
 plugins: anyio-4.9.0, cov-6.2.1
 collected 1 item
 
-tests\test_pydepguard_init.py [INIT] [pydepguard] Integrity Check UUID: 6dcf6938-be91-47ca-8909-44aae63427b5
-[INIT] [pydepguard] System fingerprint:
+tests\test_pydepguard_init.py [0.0] [INIT] [pydepguard] Integrity Check UUID: 20537c11-a5df-43d0-b9df-847383fe427f
+[0.04114079475402832] [INIT] [pydepguard] System fingerprint:
   hostname: [REDACTED]
   os: Windows
   os_release: 11
   os_version: 10.0.26100
   arch: AMD64
   platform: Windows-11-10.0.26100-SP0
-  user: [REDACTED]
+  user: Ikari
   python_version: 3.12.3
   python_build: ('tags/v3.12.3:f6650f9', 'Apr  9 2024 14:05:25')
   python_compiler: MSC v.1938 64 bit (AMD64)
-  python_abs_path: C:\Users\[REDACTED]\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
+  python_abs_path: C:\Users\Ikari\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
   python_interpreter_hash: 864530d708039551a2c672ddd65e5900fbc08b0981479679723a5b468f8082bc
-  executable: c:\Users\[REDACTED]\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
-  cwd: c:\Users\[REDACTED]\pylock\pylock-dependency-lockfile
+  executable: c:\Users\Ikari\pylock\pylock-dependency-lockfile\.venv\Scripts\python.exe
+  cwd: c:\Users\Ikari\pylock\pylock-dependency-lockfile
   pydepguard_package: pydepguardnext
-  pydepguard_version: 2.0.1
-[INIT] Fingerprint hash: d85fd8244a0f1811488ee0f7cbd9d21f1f3e6eab2659cd25076891fbeeb30dcf
-[INIT] [pydepguard] Bullshit Detection System activating.
-[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] Absolute last moment of system not sealed at global time:  0.0409 seconds.
-[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] Runtime sealed in 0.000999 seconds.
-[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] Background integrity patrol started at 2025-06-24T01:01:33.507363+00:00 (Global time: 0.0419 seconds). Timedelta from JIT lock to watchdog activation: 0.001002 seconds.
-[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] WATCHDOG PROVISIONED: {'_background_integrity_patrol', '_background_rpng_check'}
-[INTEGRITY] [api.runtime.integrity] [6dcf6938-be91-47ca-8909-44aae63427b5] WATCHDOG THREADS: [<Thread(IntegrityPatrolThread440d7b7c47c0a1472ae11cd9ea02fb1c, started daemon 7848)>, <Thread(IntegrityPatrolThreadaedb31b35c95184ee25084f554925d8d, initial daemon)>, <Thread(IntegrityPatrolThread09997b541d645a547a5fea93f05fb43e, initial daemon)>, <Thread(IntegrityPatrolThreadaf0dcd7866f8a3c779cbb66044e5cd7e, initial daemon)>]
-[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] Background integrity patrol started.
-[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] First check: 0.041911 seconds. JIT Integrity Check Snapshot: {'importer._patched_import': 2997836876512, 'importer._patched_importlib_import_module': 2997836876832, 'importer.AutoInstallFinder': 2997823404336, 'logit.logit': 2997836875552, 'airjail.maximum_security': 2997836879712, 'airjail.disable_socket_access': 2997836879232, 'airjail.disable_file_write': 2997836878912, 'airjail.disable_network_access': 2997836878752, 'airjail.disable_urllib_requests': 2997836879072, 'airjail.block_ctypes': 2997836294528, 'airjail.enable_sandbox_open': 2997836824256, 'airjail.patch_environment_to_venv': 2997836879552, 'airjail.prepare_fakeroot': 2997836879872, 'api.runtime.integrity.run_integrity_check': 2997836874752, 'api.runtime.integrity.jit_check': 2997836873952, 'api.runtime.integrity.get_rpng_check': 2997836874112, 'api.runtime.integrity._background_integrity_patrol': 2997836874432, 'api.runtime.integrity._background_rpng_check': 2997836874272, 'api.runtime.integrity.start_patrol': 2997836874592, 'global_.jit_check_uuid': '6dcf6938-be91-47ca-8909-44aae63427b5'}
-[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] ⚠ Using override hash: last 10: 0f932fddc8... (dev mode only)
-[INIT] [pydepguard] [6dcf6938-be91-47ca-8909-44aae63427b5] Self-integrity check passed. Init complete. Total time: 0.235150 seconds.
+  pydepguard_version: 2.0.3
+[0.04114079475402832] [INIT] Fingerprint hash: 288537ac19bd48b159bd63b1c02a95b2833ac4c28eebf72f670c8b076fec39c6
+[0.04114079475402832] [INIT] [pydepguard] Bullshit Detection System activating.
+[0.04220938682556152] [INTEGRITY] [api.runtime.integrity] [20537c11-a5df-43d0-b9df-847383fe427f] Absolute last moment of system not sealed at global time:  0.0422 seconds.
+[0.04220938682556152] [INTEGRITY] [api.runtime.integrity] [20537c11-a5df-43d0-b9df-847383fe427f] Runtime sealed in 0.001069 seconds.
+[0.044380903244018555] [INTEGRITY] [api.runtime.integrity] [20537c11-a5df-43d0-b9df-847383fe427f] Background integrity patrol started at 2025-06-24T15:12:54.661716+00:00 (Global time: 0.0444 seconds). Timedelta from JIT lock to watchdog activation: 0.002172 seconds.
+[0.044380903244018555] [INTEGRITY] [api.runtime.integrity] [20537c11-a5df-43d0-b9df-847383fe427f] WATCHDOG PROVISIONED: {'_background_integrity_patrol', '_background_rpng_check'}
+[0.044380903244018555] [INTEGRITY] [api.runtime.integrity] [20537c11-a5df-43d0-b9df-847383fe427f] WATCHDOG THREADS: [<Thread(IntegrityPatrolThread0570f5d453467a0594a9401cf2807e2e, started daemon 36776)>, <Thread(IntegrityPatrolThreada98998a47640b2d2bdb97cb1633817f0, started daemon 16864)>, <Thread(IntegrityPatrolThreadf964bd75b14b4eb333ca4b94911f55da, started daemon 14324)>, <Thread(IntegrityPatrolThread25fa0526e43a89ba40eb78ddc46b11fa, started daemon 45328)>]
+[0.044380903244018555] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] Background integrity patrol started.
+[0.044380903244018555] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] First check: 0.044909 seconds. JIT Integrity Check Snapshot: {'importer._patched_import': 2802425433280, 'importer._patched_importlib_import_module': 2802425433600, 'importer.AutoInstallFinder': 2802411317152, 'logit.logit': 2802425432320, 'airjail.maximum_security': 2802425436480, 'airjail.disable_socket_access': 2802425436000, 'airjail.disable_file_write': 2802425435680, 'airjail.disable_network_access': 2802425435520, 'airjail.disable_urllib_requests': 2802425435840, 'airjail.block_ctypes': 2802424850976, 'airjail.enable_sandbox_open': 2802425380704, 'airjail.patch_environment_to_venv': 2802425436320, 'airjail.prepare_fakeroot': 2802425436640, 'api.runtime.integrity.run_integrity_check': 2802425431520, 'api.runtime.integrity.jit_check': 2802425430720, 'api.runtime.integrity.get_rpng_check': 2802425430880, 'api.runtime.integrity._background_integrity_patrol': 2802425431200, 'api.runtime.integrity._background_rpng_check': 2802425431040, 'api.runtime.integrity.start_patrol': 2802425431360, 'global_.jit_check_uuid': '20537c11-a5df-43d0-b9df-847383fe427f'}
+[0.044909000396728516] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] JIT Integrity Check complete. Starting SIGVERIFY Stage 2.
+[0.1723766326904297] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] SIGVERIFY Stage 2 complete. 55 of 55 functions verified.
+[0.1723766326904297] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] SIGVERIFY frozen in 0.125869 seconds.
+[0.36044979095458984] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] ⚠ Using override hash: last 10: dd6e5037e8... (dev mode only)
+[0.3614521026611328] [INIT] [pydepguard] [20537c11-a5df-43d0-b9df-847383fe427f] Self-integrity check passed. Init complete. Total time: 0.361452 seconds.
 .
 
-============================== 1 passed in 0.32s ==============================
+============================== 1 passed in 0.45s ==============================
+
 
 ```
+
+> Yes, its that fast.
 
 Unless you're able to get around all of my `__init__` checks in \<0.040s, you will be unable to take over runtime. By 0.035s, the PyDepGuard's already locked its id()s and function maps. 
 
