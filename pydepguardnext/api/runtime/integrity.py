@@ -55,9 +55,9 @@ def jit_check(check_uuid=None):
         "airjail.prepare_fakeroot": id(prepare_fakeroot),
         "api.runtime.integrity.run_integrity_check": id(run_integrity_check),
         "api.runtime.integrity.jit_check": id(jit_check),
-        "api.runtime.integrity.get_rpng_check": id(get_rpng_check),
+        "api.runtime.integrity.get_prng_check": id(get_prng_check),
         "api.runtime.integrity._background_integrity_patrol": id(_background_integrity_patrol),
-        "api.runtime.integrity._background_rpng_check": id(_background_rpng_check),
+        "api.runtime.integrity._background_prng_check": id(_background_prng_check),
         "api.runtime.integrity.start_patrol": id(start_patrol),
         "global_.jit_check_uuid": INTEGRITY_UUID.get("global_.uuid", None),
     })
@@ -84,7 +84,7 @@ def jit_check(check_uuid=None):
    
 
 
-def get_rpng_check():
+def get_prng_check():
     import random
     from pydepguardnext import _total_global_time, get_gtime
     random_bytes_check = list()
@@ -100,7 +100,7 @@ def get_rpng_check():
         raise WatchdogViolationError("Random integer check failed! Integers are not unique.") from None
 
 
-def _background_rpng_check():
+def _background_prng_check():
     import random
     from pydepguardnext import _total_global_time, get_gtime
     while True:
@@ -112,7 +112,7 @@ def _background_rpng_check():
                 print("[INTEGRITY] [api.runtime.integrity] Integrity checks are disabled by environment variable.")
                 return
             else:
-                get_rpng_check()
+                get_prng_check()
                 print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Rolling some dice...")
         except Exception as e:
             raise WatchdogViolationError(f"Random integrity check failed: {e}") from None # This is a serious error, we should not continue if this happens.
@@ -174,7 +174,7 @@ def start_patrol():
     integrity_thread3.name = ("IntegrityPatrolThread" + random.randbytes(16).hex())
     integrity_thread4 = Thread(target=_background_integrity_patrol, daemon=True)
     integrity_thread4.name = ("IntegrityPatrolThread" + random.randbytes(16).hex())
-    random_check_thread = Thread(target=_background_rpng_check, daemon=True)
+    random_check_thread = Thread(target=_background_prng_check, daemon=True)
     random_check_thread.name = ("RandomCheckThread" + random.randbytes(16).hex())
     integrity_thread1.start()
     integrity_thread2.start()
@@ -189,9 +189,9 @@ def start_patrol():
         "thread": [integrity_thread1, integrity_thread2, integrity_thread3, integrity_thread4],
         "uuid": INTEGRITY_UUID.get("global_.uuid", None),
         "started_at_timestamp": datetime.now(timezone.utc).isoformat(),
-        "rpng_check_thread": random_check_thread,
-        "rpng_check_started_at_timestamp": datetime.now(timezone.utc).isoformat(),
-        "watchdog_modules": {_background_rpng_check.__name__, _background_integrity_patrol.__name__}
+        "prng_check_thread": random_check_thread,
+        "prng_check_started_at_timestamp": datetime.now(timezone.utc).isoformat(),
+        "watchdog_modules": {_background_prng_check.__name__, _background_integrity_patrol.__name__}
     })
     watchdogtime = time() - _total_global_time
     print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] Background integrity patrol started at {INTEGRITY_WATCHDOG['started_at_timestamp']} (Global time: {watchdogtime:.4f} seconds). Timedelta from JIT lock to watchdog activation: {watchdogtime - SYSLOCK_TIMING:.6f} seconds.")
@@ -229,9 +229,9 @@ def run_integrity_check():
         "airjail.prepare_fakeroot": id(prepare_fakeroot),
         "api.runtime.integrity.run_integrity_check": id(run_integrity_check),
         "api.runtime.integrity.jit_check": id(jit_check),
-        "api.runtime.integrity.get_rpng_check": id(get_rpng_check),
+        "api.runtime.integrity.get_prng_check": id(get_prng_check),
         "api.runtime.integrity._background_integrity_patrol": id(_background_integrity_patrol),
-        "api.runtime.integrity._background_rpng_check": id(_background_rpng_check),
+        "api.runtime.integrity._background_prng_check": id(_background_prng_check),
         "api.runtime.integrity.start_patrol": id(start_patrol),
         "global_.jit_check_uuid": INTEGRITY_UUID.get("global_.uuid", None),
     }
@@ -255,7 +255,7 @@ def run_integrity_check():
                     broken_values.append((key, value))
         for key, value in broken_values:
             print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] {key}: {value}")
-        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] ⚠ Integrity hash check failed! Expected: {INTEGRITY_CHECK_DIGEST}, Found: {current_digest}")
-        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] ⚠ This is not a hardened environment, continuing without raising an error.")
+        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] Integrity hash check failed! Expected: {INTEGRITY_CHECK_DIGEST}, Found: {current_digest}")
+        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] This is not a hardened environment, continuing without raising an error.")
     else:
         return time() - _total_global_time  # Return the time it took to run the integrity check

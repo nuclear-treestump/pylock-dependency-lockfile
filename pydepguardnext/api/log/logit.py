@@ -31,6 +31,28 @@ def resolve_source(source="auto", max_depth=5):
 _last_hash = None
 
 
+class IntegrityUUIDFilter(logging.Filter):
+    def __init__(self, uuid):
+        super().__init__()
+        self.uuid = uuid
+
+    def filter(self, record):
+        return "[INTEGRITY]" in record.msg and f"[{self.uuid}]" in record.msg
+    
+class StartEndFilter(logging.Filter):
+    def __init__(self):
+        super().__init__()
+        self.start_str = "prerun"
+        self.end_str = "postrun"
+        self.uuid = INTEGRITY_CHECK["global_.jit_check_uuid"]
+
+    def filter(self, record):
+        if self.start_str in record.msg and self.uuid in record.msg:
+            return True
+        elif self.end_str in record.msg and self.uuid in record.msg:
+            return True
+        return False
+
 class JSONFormatter(logging.Formatter):
     def format(self, record):
         log_data = {
@@ -42,6 +64,18 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_data)
     
 
+def _maybe_parse_startend_json_block(message):
+    if isinstance(message, dict) and message.get("obj_type") in {"prerun", "postrun"} and f"[{INTEGRITY_CHECK['global_.jit_check_uuid']}]" in message:
+        return json.dumps(message)
+    try:
+        parsed = json.loads(message)
+        if isinstance(parsed, dict) and parsed.get("obj_type") in {"prerun", "postrun"} and f"[{INTEGRITY_CHECK['global_.jit_check_uuid']}]" in parsed.get("message", ""):
+            return json.dumps(parsed)
+    except Exception:
+        pass
+    return None
+    
+
 COLOR_MAP = {
     "DEBUG": "\033[90m",
     "INFO": "\033[94m",
@@ -49,14 +83,18 @@ COLOR_MAP = {
     "ERROR": "\033[91m",
     "CRITICAL": "\033[95m",
     "FATAL": "\033[95m",
+    "USER SCRIPT": "\033[94m",
 }
 RESET_COLOR = "\033[0m"
 
 class ColoredFormatter(logging.Formatter):
     def format(self, record):
+        original_level = record.levelname
         level_color = COLOR_MAP.get(record.levelname, "")
+        record.levelname = f"{level_color}{record.levelname}{RESET_COLOR}"
         formatted = super().format(record)
-        return f"{level_color}{formatted}{RESET_COLOR}"
+        record.levelname = original_level
+        return formatted
     
 _LOGGING_STATE = {
     "enabled": False,
@@ -77,7 +115,10 @@ LOG_LEVELS = {
     "4": logging.INFO,
     "5": logging.DEBUG,
     "u": 21,
-    "m": 25
+    "m": 25,
+    "v": 69,
+    "x": 70, # Integrity logs
+    "z": 71, # INIT logs
 }
 
 REDACT_PATTERNS = [re.compile(re.escape(s)) for s in SECRETS_LIST if s]
@@ -117,9 +158,9 @@ def logit(
     
     if source is None:
         source = "NOTHEREFILLTHISIN"
-    if source == "auto":
+    elif source == "auto":
         source = resolve_source("auto")
-    if source != "auto" and source != "NOTHEREFILLTHISIN":
+    else:
         source = source
 
     
@@ -150,24 +191,37 @@ def logit(
         message = message # No change to pre-configured logs from __init__.py
         lvl = logging.INFO
 
-    elif source and source != "USER_SCRIPT":
-        message = f"[{get_gtime()}] [{source}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
-    else:
-        message = f"[{get_gtime()}] [SOURCE MISSING] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
-    if level not in {"u", "x"}: # DeMorgan issue, so had to use this
-        logger.log(lvl, message, stacklevel=stacklevel, **kwargs)
-    else:
+    elif source != "USER_SCRIPT":
+        message = f"[{get_gtime()}] [{source if source else 'SOURCE MISSING'}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
+    if level in {"u", "x"}: 
         if redir_file:
             # Temporary handler for user_scripts or redirection
-            temp_handler = logging.FileHandler(redir_file)
-            formatter_fmt = fmt if fmt is not None else _LOGGING_STATE["format"]
-            temp_handler.setFormatter(JSONFormatter() if formatter_fmt == "json" else ColoredFormatter("[%(levelname)s] %(message)s"))
-            logger.addHandler(temp_handler)
+            from os import environ
+            uuid = INTEGRITY_CHECK["global_.jit_check_uuid"]
+            runtime_handler = logging.FileHandler(environ.get("PYDEP_RUNTIME_LOG", "pydepguard.runtime.log"))
+            integrity_handler = logging.FileHandler(environ.get("PYDEP_INTEGRITY_LOG", "pydepguard.integrity.log"))
+            fmt = fmt if fmt is not None else _LOGGING_STATE["format"]
+            integrity_handler.setFormatter(JSONFormatter() if fmt == "json" else ColoredFormatter("[%(levelname)s] %(message)s"))
+            runtime_handler.setFormatter(JSONFormatter() if fmt == "json" else ColoredFormatter("[%(levelname)s] %(message)s"))
+            logger.propagate = False
+            logger.addHandler(runtime_handler)
+            logger.addHandler(integrity_handler)
+            integrity_handler.addFilter(IntegrityUUIDFilter(uuid))
+            integrity_handler.addFilter(StartEndFilter())
             message_list = message.splitlines()
             for line in message_list:
-                logger.log(lvl, line, stacklevel=stacklevel, **kwargs)
-            logger.removeHandler(temp_handler)
-            temp_handler.close()
+                line_json = _maybe_parse_startend_json_block(line)
+                if line_json:
+                    logger.log(lvl, line_json, stacklevel=stacklevel, **kwargs)
+                else:
+                    logger.log(lvl, line, stacklevel=stacklevel, **kwargs)
+            logger.removeHandler(integrity_handler)
+            logger.removeHandler(runtime_handler)
+            integrity_handler.close()
+            runtime_handler.close()
+            return
+    else:
+        logger.log(lvl, message, stacklevel=stacklevel, **kwargs)
 
 
 def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True, initial_logs: list[str] = []):
@@ -189,8 +243,11 @@ def configure_logging(level="INFO", fmt="text", to_file=None, print_enabled=True
         else:
             file_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
         logger.addHandler(file_handler)
-    logging.addLevelName(21, "USER")
+    logging.addLevelName(21, "USER SCRIPT")
     logging.addLevelName(25, "METRIC")
+    logging.addLevelName(69, "IMPROVEMENT")
+    logging.addLevelName(70, "INTEGRITY")
+    logging.addLevelName(71, "INIT")
     logger.setLevel(LOG_LEVELS.get(level[0].lower(), logging.INFO))
 
     _LOGGING_STATE["enabled"] = True

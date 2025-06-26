@@ -295,13 +295,32 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
     _global_timecheck = timecheck or time.time()
     if not cached:
         patch_all_import_hooks()
+    from pydepguardnext import get_gtime
+    from datetime import datetime 
 
     combined = io.StringIO()
-    
+
+    prerun_details = {"obj_type": "prerun", "script_path": script_path, "time": datetime.now().isoformat(), "cached": cached, "parent_uuid": INTEGRITY_CHECK["global_.jit_check_uuid"]}
     with contextlib.redirect_stdout(combined), contextlib.redirect_stderr(combined):
         result = runpy.run_path(script_path)
-    
-    logit(combined.getvalue(), "u", source="USER_SCRIPT", redir_file="pydepguard.runtime.log")
+
+    print(result)
+
+    loglines = combined.getvalue().strip().splitlines()
+
+    header_data = {
+        "obj_type": "postrun",
+        "end_time": datetime.now().isoformat(),
+        "prerun_details": prerun_details,
+        "script_path": script_path,
+        "cached": cached,
+        "dependencies_installed": ', '.join(_timepermodule.keys()) if _timepermodule else 'None'
+    }
+
+    loglines.insert(0, str(prerun_details))
+    loglines.append(str(header_data))
+
+    logit("\n".join(loglines), "u", source="USER_SCRIPT", redir_file="pydepguard.runtime.log")
     global _timing, _urltiming
     timeblock = {"url": _urltiming, "download": _timing}
     dists = metadata.distributions()
@@ -316,6 +335,6 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
     stats, median, average = stats_from_import(_timepermodule)
     suggestions = generate_import_suggestions(stats, median, average)
     if suggestions:
-        logit(f"Import suggestions: {', '.join(suggestions)}", "i", source=f"{logslug}.{install_missing_and_retry.__name__}")
+        logit(f"Import suggestions: {', '.join(suggestions)}", "z", source=f"{logslug}.{install_missing_and_retry.__name__}")
 
     return result, dist_list, timeblock
