@@ -7,6 +7,10 @@ class PyDepGuardError(Exception):
     def __init__(self, message, *, code=None):
         super().__init__(message)
         self.code = code or self.code
+        from pydepguardnext import _FLAGS
+        import sys
+        if _FLAGS.get("PYDEP_HARDENED") != "1":
+            sys.tracebacklimit = 0 
 
 
 class LockfileValidationError(PyDepGuardError):
@@ -37,3 +41,24 @@ class DependencyResolutionError(PyDepGuardError):
 class DependencyConflictError(PyDepGuardError):
     """Raised when an installed version of a package conflicts with the lockfile."""
     code = 1201
+
+class PyDepRuntimeError(PyDepGuardError):
+    """Raised for general runtime errors in PyDepGuard."""
+    code = 1300
+
+class PyDepUUIDCollisionError(PyDepGuardError):
+    """Raised when a UUID collision is detected in the environment."""
+    code = 1301
+
+class PyDepIntegrityError(PyDepGuardError):
+    """Raised when the integrity of the PyDepGuard environment is compromised."""
+    code = 1400
+
+class PyDepReadOnlyError(PyDepGuardError):
+    """Raised when an operation is attempted on a read-only resource."""
+    code = 1500
+
+class PyDepListUnauthorizedAccessError(PyDepGuardError):
+    """Raised when unauthorized access to a list is attempted."""
+    code = 1600
+

@@ -155,8 +155,5 @@ def test_lambda_runtime_executes_known_script_with_guard():
     delete_target = app_dir.parent
     renamed = delete_target.with_name(delete_target.name + "_todelete")
     app_dir.parent.rename(renamed)
-    safe_rmtree(renamed, retries=10, delay=2, temp_dir=temp_dir)
-    print("Directory contents after deletion:")
-    for p in Path(temp_dir).rglob("*"):
-        print(f"- {p}")
-    print(f"Only remnants should be the interpreters in {Path(renamed).resolve()}. Known Windows bug. No userland files survived in fakeroot. I win.")
+    with open("pydepguard.log", "a", encoding="utf-8") as f:
+        f.write(f"Location of temporary files: {renamed.resolve()}\n")

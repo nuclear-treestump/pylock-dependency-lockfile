@@ -30,7 +30,7 @@ def test_init_validate_self():
     from pydepguardnext import _log 
     pydepguardnext.log_incident("test", "test", "test", "test")
     pydepguardnext.validate_self()
-    assert "⚠ Using override hash:" in str(_log)
+    assert "Using override hash:" in str(_log)
     print("\n".join(_log))
 
 

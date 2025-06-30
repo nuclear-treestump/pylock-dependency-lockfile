@@ -15,6 +15,106 @@ _sandbox_enabled = False
 _maximum_security_details = {}
 _maximum_security_enabled = False
 
+def block_serialization_modules():
+    import sys
+    sys.modules["pickle"] = None
+    sys.modules["marshal"] = None
+    sys.modules["dill"] = None
+    logit("serialization modules (pickle, marshal, dill) blocked", "i")
+
+def wrap_subprocess_with_manifest(allowed_commands: list[str]):
+    import subprocess
+    import shlex
+
+    def is_allowed(cmd):
+        # Normalize command to string (even if it's a list)
+        if isinstance(cmd, list):
+            cmd_str = ' '.join(cmd)
+        else:
+            cmd_str = cmd
+
+        # Strip leading/trailing and tokenize to prevent sneaky trickery
+        tokens = shlex.split(cmd_str)
+
+        # Allow match if the whole command or base command is allowed
+        base = tokens[0] if tokens else ''
+        return cmd_str in allowed_commands or base in allowed_commands
+
+    def guarded_subprocess(*args, **kwargs):
+        cmd = args[0] if args else kwargs.get('args')
+
+        if not is_allowed(cmd):
+            logit(f"Blocked subprocess call: {cmd}", "x")
+            raise RuntimeError(f"Blocked subprocess call: {cmd}")
+
+        logit(f"Allowed subprocess call: {cmd}", "i")
+        return _real_subprocess_run(*args, **kwargs)
+
+    _real_subprocess_run = subprocess.run
+    subprocess.run = guarded_subprocess
+    subprocess.call = guarded_subprocess
+    subprocess.check_call = guarded_subprocess
+    subprocess.check_output = guarded_subprocess
+
+    def guarded_popen(*args, **kwargs):
+        cmd = args[0] if args else kwargs.get('args')
+        if not is_allowed(cmd):
+            logit(f"Blocked subprocess Popen: {cmd}", "x")
+            raise RuntimeError(f"Blocked subprocess Popen: {cmd}")
+        logit(f"Allowed subprocess Popen: {cmd}", "i")
+        return _real_popen(*args, **kwargs)
+
+    _real_popen = subprocess.Popen
+    subprocess.Popen = guarded_popen
+
+    logit("Subprocess wrapped with manifest-based policy", "i")
+
+
+def disable_os_escape():
+    import os
+    import subprocess
+
+    class BlockedEnviron(dict):
+        def __getitem__(self, key): raise RuntimeError("Access to environment variables is blocked")
+        def __setitem__(self, key, value): raise RuntimeError("Environment variable mutation blocked")
+
+    os.environ = BlockedEnviron()
+
+    def blocked_subprocess(*args, **kwargs):
+        raise RuntimeError("Subprocess execution is blocked")
+
+    subprocess.run = blocked_subprocess
+    subprocess.Popen = blocked_subprocess
+    subprocess.call = blocked_subprocess
+    subprocess.check_call = blocked_subprocess
+    subprocess.check_output = blocked_subprocess
+
+    logit("os.environ and subprocess blocked", "i")
+
+def disable_introspection():
+    import sys, gc, inspect
+
+    sys._getframe = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("frame access blocked"))
+    gc.get_objects = lambda: (_ for _ in ()).throw(RuntimeError("gc access blocked"))
+    inspect.stack = lambda: (_ for _ in ()).throw(RuntimeError("inspect access blocked"))
+    inspect.currentframe = lambda: (_ for _ in ()).throw(RuntimeError("inspect access blocked"))
+
+    logit("introspection via gc, inspect, sys._getframe blocked", "i")
+
+def nuke_ipython_globals():
+    for key in ('_ih', '_oh', '_exit', '_i', '_ii', '_iii'):
+        if key in globals():
+            del globals()[key]
+    logit("IPython REPL globals nuked", "i")
+
+def freeze_sysmodules_and_builtins():
+    import sys, builtins
+
+    sys.modules = MappingProxyType(sys.modules)
+    builtins.__dict__ = MappingProxyType(builtins.__dict__)
+    logit("sys.modules and builtins frozen with MappingProxyType", "i")
+
+
 def _raise_ctypes_blocked(*args, **kwargs):
     raise RuntimeError("ctypes is blocked unless --need-ctypes is enabled")
 

@@ -24,3 +24,5 @@ def split_name_and_version(dep_str: str) -> tuple[str, str | None]:
             return name.strip(), f"{spec}{version.strip()}"
     return dep_str.strip(), None
 
+def strip_version_spec(req: str) -> str:
+    return req.split()[0].split(';')[0].split('[')[0]

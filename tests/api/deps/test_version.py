@@ -1,5 +1,5 @@
 import pytest
-from pydepguardnext.api.deps.version import split_name_and_version
+from pydepguardnext.api.deps.version import split_name_and_version, strip_version_spec
 
 @pytest.mark.parametrize("input_str, expected", [
     ("requests", ("requests", None)),
@@ -13,6 +13,8 @@ from pydepguardnext.api.deps.version import split_name_and_version
     ("requests^1.1.0", ("requests", "^1.1.0")),
     ("   requests   ==   2.0.0  ", ("requests", "==2.0.0")),
     (" numpy", ("numpy", None)),
-])
+],
+    ids=lambda x: x[0].strip().replace(" ", "_")
+)
 def test_split_name_and_version(input_str, expected):
     assert split_name_and_version(input_str) == expected

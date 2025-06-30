@@ -37,7 +37,7 @@ class IntegrityUUIDFilter(logging.Filter):
         self.uuid = uuid
 
     def filter(self, record):
-        return "[INTEGRITY]" in record.msg and f"[{self.uuid}]" in record.msg
+        return "[INTEGRITY]" in record.msg and f"{self.uuid}" in record.msg
     
 class StartEndFilter(logging.Filter):
     def __init__(self):

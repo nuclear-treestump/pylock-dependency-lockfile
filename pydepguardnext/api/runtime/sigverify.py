@@ -8,6 +8,7 @@ from pathlib import Path
 from pydepguardnext import SIGSTORE_PUBKEY, start_capture, stop_capture, PRINT_CAPTURE
 from types import MappingProxyType
 
+SIGMAP = {}
 SIGVERIFY = {}
 SIGVERIFIED = {}
 
@@ -32,9 +33,12 @@ def compute_digest(func: types.FunctionType) -> bytes:
     """
     Compute the SHA256 digest of a function's bytecode and constants.
     """
-    from marshal import dumps as marshal_dumps
     import inspect
-    source = inspect.getsource(func)
+    try:
+        func = inspect.unwrap(func)  # ensure original function, not wrapped
+        source = inspect.getsource(func)
+    except Exception:
+        raise RuntimeError(f"Cannot unwrap or fetch source for {func}")
     return hashlib.sha256(source.encode()).digest()
 
 
@@ -57,6 +61,8 @@ def validate_all_functions(sigstore_path: Path = None, _log: list = None) -> dic
 
     with open(sigstore_path, "r", encoding="utf-8") as f:
         sig_data = json.load(f)
+        global SIGMAP
+        SIGMAP = MappingProxyType(sig_data)
 
     def scan_module(module_name):
         try:
@@ -86,7 +92,12 @@ def validate_all_functions(sigstore_path: Path = None, _log: list = None) -> dic
                         "expected": expected_hex,
                         "signature": sig_int,
                         "match": match,
-                        "sig_ok": sig_ok
+                        "sig_ok": sig_ok,
+                        "obj_id": id(obj),
+                        "obj_name": name,
+                        "module": module_name,
+                        "fqname": fqname,
+                        "compound_hash": hashlib.sha256(f"{id(obj)}-{computed_hex}".encode()).hexdigest()
                     }
                     SIGVERIFY[fqname] = MappingProxyType(result_mpt)
                 else:

@@ -6,13 +6,14 @@ from typing import Optional, List, Dict, Set
 @dataclass
 class DepMap:
     pypi_name: str
-    pypi_url: Set[str] = field(default_factory=set)                                     
-    aliases: Set[str] = field(default_factory=set)     
-    versions: Set[str] = field(default_factory=set)    
-    try_versions: Set[str] = field(default_factory=set)  
-    jit_versions: Set[str] = field(default_factory=set)  
-    transitive: Dict[str, str] = field(default_factory=dict)  
-    license_info: Optional[str] = None                 
+    pypi_url: Set[str] = field(default_factory=set)
+    aliases: Set[str] = field(default_factory=set)
+    versions: Set[str] = field(default_factory=set)
+    try_versions: Set[str] = field(default_factory=set)
+    jit_versions: Set[str] = field(default_factory=set)
+    transitive: Set[str] = field(default_factory=set)
+    license_info: Optional[str] = None
+    origins: Set[str] = field(default_factory=set)   
 
     def add_alias(self, name: str):
         self.aliases.add(name)
@@ -25,8 +26,11 @@ class DepMap:
         else:
             self.versions.add(version)
 
-    def add_transitive(self, pkg: str, version: str):
-        self.transitive[pkg] = version
+    def add_transitive(self, pkg: str):
+        self.transitive.add(pkg)
+
+    def add_origin(self, location: str):
+        self.origins.add(location)
 
     def merge(self, other: "DepMap"):
         assert self.pypi_name == other.pypi_name
@@ -35,6 +39,8 @@ class DepMap:
         self.try_versions.update(other.try_versions)
         self.jit_versions.update(other.jit_versions)
         self.transitive.update(other.transitive)
+        self.pypi_url.update(other.pypi_url)
+        self.origins.update(other.origins)
         if not self.license_info and other.license_info:
             self.license_info = other.license_info
 
@@ -46,9 +52,11 @@ class DepMap:
             "versions": sorted(self.versions),
             "try_versions": sorted(self.try_versions),
             "jit_versions": sorted(self.jit_versions),
-            "transitive": self.transitive,
-            "license": self.license_info
+            "transitive": sorted(self.transitive),
+            "license": self.license_info,
+            "origins": sorted(self.origins)
         }
+
 
 class DepMapRegistry:
     def __init__(self):

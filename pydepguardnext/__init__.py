@@ -4,8 +4,27 @@ from types import MappingProxyType
 GLOBAL_CLOCK = MappingProxyType({"T0": time.perf_counter()})
 import sys
 import io
+from os import getenv, urandom
+import json
+import ctypes
+_MANIFEST = MappingProxyType(json.loads(getenv("PYDEP_MANIFEST", "{}")))
 
+_FLAGS = MappingProxyType(json.loads(getenv("PYDEP_FLAGS", "{}")))
+def _set_vault():
+    from pydepguardnext.api.factories import mappingproxy_ovr
+    from os import urandom
+
+    _secret = urandom(32).hex()
+    VAULT_KEY = urandom(8).hex()
+    VAULT = mappingproxy_ovr.ZebraProxy({VAULT_KEY: _secret})
+    VAULT_ID = id(VAULT)
+    mappingproxy_ovr.VAULT_KEY = VAULT_KEY
+    mappingproxy_ovr.VAULT = VAULT
+    mappingproxy_ovr.VAULT_ID = VAULT_ID
+    del _secret
 PRINT_CAPTURE = io.StringIO()
+
+PYDEP_FUNC_MAP = {}
 
 def start_capture():
     sys.stdout = PRINT_CAPTURE
@@ -93,24 +112,89 @@ class PyDepBullshitDetectionError(Exception):
     # The incident ID is generated to track the issue.
     # This intentionally omits the traceback to prevent leaking sensitive information.
     # This only comes into play if the environment is hardened.
-    def __init__(self, expected, found):
+    def __init__(self, expected=None, found=None, msg=None):
         self.expected = expected
         self.found = found
         self.incident_id = str(uuid4())
+        self.msg = msg
+        self.printable = ""
         super().__init__(self.__str__())
+        if _FLAGS.get("PYDEP_HARDENED") != "1":
+            sys.tracebacklimit = 0 
+
+        if self.msg:
+            self.printable = f"\n💀 PyDepBullshitDetectionError: Runtime Disrespected.\nMessage: {self.msg}\nIncident ID: {self.incident_id}\nLinked traceback omitted intentionally."
+
+        elif self.expected and self.found:
+            self.printable = f"\n💀 PyDepBullshitDetectionError: Self-integrity check failed.\nExpected: {self.expected}\nFound: {self.found}\nIncident ID: {self.incident_id}\nLinked traceback omitted intentionally."
+        else:
+            self.printable = (
+                f"\n💀 PyDepBullshitDetectionError: Unknown integrity violation.\n"
+                f"Incident ID: {self.incident_id}\n"
+                f"Linked traceback omitted intentionally."
+            )
 
     def __str__(self):
         log_incident(self.incident_id, self.expected, self.found)
-        return (
-            "\n💀 PyDepBullshitDetectionError: Self-integrity check failed.\n"
-            f"Expected: {self.expected}\n"
-            f"Found: {self.found}\n"
-            f"Incident ID: {self.incident_id}\n"
-            "Linked traceback omitted intentionally."
-        )
+        return (self.printable)
 
 # This function fingerprints the system and logs the details, gathering as much information as possible
 # The more items in the json, the more tripwires we have to detect tampering.
+
+# Identify OS
+
+import platform
+import os
+
+def get_total_memory_gb_gib():
+    system = platform.system()
+
+    def format_output(bytes_total):
+        gb = bytes_total / 1_000_000_000     # decimal gigabytes
+        gib = bytes_total / (1024 ** 3)      # binary gibibytes
+        return round(gb, 2), round(gib, 2)
+
+    if system == "Windows":
+        import ctypes
+
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        stat = MEMORYSTATUSEX()
+        stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+        return format_output(stat.ullTotalPhys)
+
+    elif system == "Linux":
+        try:
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        parts = line.split()
+                        kb = int(parts[1])  # kB
+                        return format_output(kb * 1024)
+        except Exception as e:
+            print(f"Failed to read /proc/meminfo: {e}")
+
+    elif system == "Darwin":  # macOS
+        try:
+            mem_bytes = int(os.popen("sysctl -n hw.memsize").read())
+            return format_output(mem_bytes)
+        except Exception as e:
+            print(f"Failed to read hw.memsize: {e}")
+
+    return None, None
+
 def fingerprint_system():
     from platform import system, release, version, machine, platform, python_version, python_build, python_compiler, processor
     from getpass import getuser
@@ -119,8 +203,9 @@ def fingerprint_system():
     from sys import executable
     from pathlib import Path
     from hashlib import sha256
-
+    gb, gib = get_total_memory_gb_gib()
     def hash_interpreter():
+
         path = Path(executable).resolve(strict=False)
         h = sha256()
         with open(path, "rb") as f:
@@ -145,7 +230,9 @@ def fingerprint_system():
         "pydepguard_package": PACKAGE,
         "pydepguard_version": VERSION,
         "cpu_count": cpu_count(),
-        "processor": processor()
+        "processor": processor(),
+        "total_memory_gb": gb,
+        "total_memory_gib": gib,
     }
     from hashlib import sha256
     from json import dumps
@@ -221,6 +308,8 @@ SYSTEM FINGERPRINT:
         User                     : {fingerprint['user']}
         Processor                : {fingerprint.get('processor', 'N/A')}
         Processor Count          : {fingerprint.get('cpu_count', 'N/A')}
+        Total Memory (GB)        : {fingerprint['total_memory_gb']} GB
+        Reported Memory (GiB)    : {fingerprint['total_memory_gib']} GiB
 
 
     PYTHON INFO:
@@ -349,6 +438,7 @@ class PyDepDocBrownError(Exception):
     pass
 
 def timebox_guard(func):
+    from pydepguardnext.api.runtime.sigverify import SIGVERIFIED
     @wraps(func)
     def wrapper(*args, **kwargs):
         global _PYDEP_LAST_CALL
@@ -369,31 +459,39 @@ def timebox_guard(func):
         return func(*args, **kwargs)
 
     setattr(wrapper, "__pydepguard_verified__", True)
+    setattr(wrapper, "__sha256__", func)
     return wrapper
 
 def apply_global_timebox_and_tag():
     base_path = Path(__file__).parent
+    print(f"[DEBUG] base_path: {base_path}")
     for py_file in base_path.rglob("*.py"):
         if py_file.name == "__init__.py":
             continue
-        mod_path = ".".join(["pydepguardnext"] + list(py_file.relative_to(base_path).with_suffix("").parts))
+        rel_path = py_file.relative_to(base_path).with_suffix("")
+        dotted_path = ".".join(["pydepguardnext"] + list(rel_path.parts))
+        import importlib
         try:
-            mod = importlib.import_module(mod_path)
-        except Exception:
-            continue
-
-        for name, obj in inspect.getmembers(mod, inspect.isfunction):
-            if obj.__module__ != mod_path:
+            mod = importlib.import_module(dotted_path)
+        except Exception as e:
+            continue  # if import fails, skip the wrapping
+        
+        for name, obj in inspect.getmembers(mod, inspect.isfunction):  
+            if obj.__module__ != dotted_path:
                 continue
+            
             try:
                 unwrapped = inspect.unwrap(obj)
                 if getattr(unwrapped, "__pydepguard_verified__", False):
                     continue  # already wrapped
+                
                 wrapped = timebox_guard(unwrapped)
                 setattr(mod, name, wrapped)
-            except Exception:
+            except Exception as e:
                 continue
-print(f"[INIT] [{get_gtime()}] [SECURE] [pydepguard.__init__] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Global timebox guard applied to all functions. Good luck...")
+TIMEBOX_MIN_THRESHOLD = (time.perf_counter() - GLOBAL_CLOCK["T0"]) + 0.003 # Should be right at the start of timebox
+apply_global_timebox_and_tag()
+print(f"[INIT] [{get_gtime()}] [SECURE] [pydepguard.__init__] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Global timebox guard applied to all functions. at {TIMEBOX_MIN_THRESHOLD} Good luck...")
 print(f"[METRIC] [{get_gtime()}] [SECURE] [pydepguard.__init__] [{JIT_INTEGRITY_CHECK['global_.jit_check_uuid']}] Self-integrity check passed. Init complete. Total time: {time.time() - _total_global_time:.6f} seconds.") # Annnnnd TIME!
 
 # Oh yeah, should probably import the API modules now that the integrity check is done.

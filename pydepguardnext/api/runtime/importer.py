@@ -52,6 +52,44 @@ _known_skip_pypi_modules = {
     "tests"
 }
 
+_blocklist = {
+    "pip",
+    "setuptools",
+    "wheel",
+    "build",
+    "twine",
+}
+
+_whitelist = set()
+def _preload_lists():
+    from os import getenv
+    global _whitelist, _blocklist, _known_aliases, _known_skip_pypi_modules
+    _whitelist.add("pydepguardnext")
+    _whitelist.add("pydepguard")
+    whitelist_temp = getenv("PYDEPGUARD_WHITELIST", "")
+    _whitelist.update(whitelist_temp.split(","))
+    _blocklist_temp = getenv("PYDEPGUARD_BLOCKLIST", "")
+    _blocklist.update(_blocklist_temp.split(","))
+    aliases_temp = getenv("PYDEPGUARD_ALIASES", "")
+    for alias_pair in aliases_temp.split(","):
+        if ":" in alias_pair:
+            src, dst = alias_pair.split(":", 1)
+            _known_aliases[src.strip()] = dst.strip()
+    skip_temp = getenv("PYDEPGUARD_SKIP_PYPI", "")
+    _known_skip_pypi_modules.update(skip_temp.split(","))
+    if "pydepguardnext" in _whitelist and "pydepguard" in _whitelist and len(_whitelist) > 2 and getenv("PYDEPGUARD_WHITELIST", "") != "":
+        _blocklist = {"all"}
+        # Setting whitelist assumes block all except those in whitelist
+        # This is the expected behavior as using a whitelist activates implicit deny.
+        # PyDepGuard and PyDepGuardNext are always whitelisted to ensure core functionality.
+        # THIS BLOCKS ALIASES AND SKIP LISTS AS WELL
+    logit(f"Whitelist: {_whitelist}", "d", source=f"{logslug}.{_preload_lists.__name__}")
+    logit(f"Blocklist: {_blocklist}", "d", source=f"{logslug}.{_preload_lists.__name__}")
+    logit(f"Known Aliases: {_known_aliases}", "d", source=f"{logslug}.{_preload_lists.__name__}")
+    logit(f"Known Skip PyPI Modules: {_known_skip_pypi_modules}", "d", source=f"{logslug}.{_preload_lists.__name__}")
+
+    
+
 
 # TODO:Replace with user-controlled override in the future
 
@@ -80,6 +118,12 @@ def _package_exists(name: str) -> bool:
     global _urltiming
     global _timepermodule
     try:
+        if name in _blocklist or "all" in _blocklist:
+            logit(f"Skipping PyPI check for blocked package: {name}", "i", source=f"{logslug}.{_package_exists.__name__}")
+            return False
+        if name in _whitelist:
+            logit(f"Skipping PyPI check for whitelisted package: {name}", "i", source=f"{logslug}.{_package_exists.__name__}")
+            return True
         if name in _known_aliases:
             logit(f"Skipping PyPI check for known alias: {name} as it is an alias for {_known_aliases[name]}.", "i", source=f"{logslug}.{_package_exists.__name__}")
             return True
@@ -100,6 +144,8 @@ def _package_exists(name: str) -> bool:
 def _is_probably_real_package(name: str) -> Tuple[bool, str]:
     name = name.lower()
     match name:
+        case name if name in _blocklist:
+            return False, "blocklist"
         case name if name in sys.builtin_module_names:
             return False, "builtin"
         case name if name in _known_skip_pypi_modules:
@@ -153,6 +199,9 @@ def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
             logit(f"Skipping auto-install for submodule: {name}", "i", source=f"{logslug}.{_patched_import.__name__}")
             raise e
         top = name.split(".")[0]
+        if name in _blocklist:
+            logit(f"Skipping auto-install for blocked package: {name}", "i", source=f"{logslug}.{_patched_import.__name__}")
+            raise e
         logit(f"Top-level module: {top}", "d", source=f"{logslug}.{_patched_import.__name__}")
         if top in _known_skip_pypi_modules:
             logit(f"Skipping auto-install for {top} (known skip module)", "i", source=f"{logslug}.{_patched_import.__name__}")
@@ -208,6 +257,9 @@ def _patched_importlib_import_module(name, package=None):
     except ImportError:
         logit(f"[patched_import_module] Caught ImportError for {name}, attempting auto-install at {time.time() - _global_timecheck} seconds", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
         top = name.split(".")[0]
+        if name in _blocklist:
+            logit(f"Skipping auto-install for blocked package: {name}", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
+            raise
         if '.' in name and name not in _known_aliases:
             logit(f"Skipping auto-install for submodule: {name}", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
             raise
@@ -299,6 +351,8 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
     from datetime import datetime 
 
     combined = io.StringIO()
+
+    _preload_lists()
 
     prerun_details = {"obj_type": "prerun", "script_path": script_path, "time": datetime.now().isoformat(), "cached": cached, "parent_uuid": INTEGRITY_CHECK["global_.jit_check_uuid"]}
     with contextlib.redirect_stdout(combined), contextlib.redirect_stderr(combined):
