@@ -1,4 +1,4 @@
-[![PyPI](https://img.shields.io/pypi/v/pydepguard.svg)](https://pypi.org/project/pydepguard/)[![Downloads](https://pepy.tech/badge/pydepguard)](https://pepy.tech/project/pydepguard)
+[![PyPI](https://img.shields.io/pypi/v/pydepguardnext.svg)](https://pypi.org/project/pydepguardnext/)[![Downloads](https://pepy.tech/badge/pydepguardnext)](https://pepy.tech/project/pydepguardnext)
 
 # PyDepGuard: Python's first secure runtime attestation framework
 
