@@ -3,7 +3,7 @@
 # PyDepGuard: Python's first secure runtime attestation framework
 
 ## New Tool Available
-🔐 SecretsManager - Ephemeral Secrets for Runtime Security
+SecretsManager - Ephemeral Secrets for Runtime Security
 
 The SecretsManager is a zero-dependency, in-memory secrets vault designed for runtime-only injection of sensitive values like API keys, tokens, and credentials. It acts as a controlled, auditable shim between your secrets and your application code. No disk I/O, no persistence, no risk of .env leakage!
 
