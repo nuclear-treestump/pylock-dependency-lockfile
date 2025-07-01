@@ -93,6 +93,7 @@ print(os.environ["AWS_SECRET"])  # One-time use, then gone
 - Drop-in support for subprocesses via .to_env()
 - Optional replacement for os.environ via SecureEnviron class
 - Use it in tests to isolate secrets per test run
+- This was rigorously tested under adversarial assumptions with nearly 60 tests just for this module alone. [See the tests here!](https://github.com/nuclear-treestump/pylock-dependency-lockfile/blob/v4.0.0/tests/api/secrets/test_secrets.py)
 
   > And this is just one tool of many that PDG will have. If you don't want the full runtime, you don't have to use it. You get all of the benefits of PDG's tooling base with no downsides, all on stdlib!
   
