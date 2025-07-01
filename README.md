@@ -1,5 +1,106 @@
 # PyDepGuard: Python's first secure runtime attestation framework
 
+## New Tool Available
+🔐 SecretsManager - Ephemeral Secrets for Runtime Security
+
+The SecretsManager is a zero-dependency, in-memory secrets vault designed for runtime-only injection of sensitive values like API keys, tokens, and credentials. It acts as a controlled, auditable shim between your secrets and your application code. No disk I/O, no persistence, no risk of .env leakage!
+
+It supports:
+- Time-based TTLs (auto-expire after N seconds)
+- One-time reads (read-once secrets, then they vanish)
+- Max read limits (e.g., only allow 3 uses)
+- Redaction on expiry
+- Mock environment variable exposure (mock_env=True)
+- Secure, drop-in replacement for os.environ via SecureEnviron
+
+Use it when:
+- You need to inject secrets into subprocesses securely.
+- You want to avoid environment variable leakage in .bash_history, ps, or logs.
+- You're running Python code in hostile or CI/CD environments.
+- You want runtime-level guardrails on how secrets are used.
+
+Future Tooling:
+- Native dotenv ingester
+- stdlib implementation of SSM handling as well as GCP
+
+> Note: SecretsManager is optional and self-contained. It lives under `pydepguardnext.standalone.secrets_manager` and can be used entirely standalone! Just import and go. If you're using it inside PyDepGuard, it integrates automatically.
+> This is what PyDepGuard uses under the hood for the secrets handling for lambda runs.
+
+Usage Patterns:
+```python
+from pydepguardnext.standalone import secrets_manager as sm
+
+# Create your secrets
+secrets = {
+    "DB_PASSWORD": sm.SecretEntry("supersecret123", ttl_seconds=60, read_once=True),
+    "API_KEY": sm.SecretEntry("abc123", read_max=3, mock_env=True, mock_env_name="MY_API_KEY"),
+}
+
+# Use the secrets (with optional auto-patching of os.environ)
+secmap = sm.use_secrets(secrets, auto_patch=True)
+
+# Now you can do this safely:
+import os
+print(os.getenv("MY_API_KEY"))  # Will work, until max reads or TTL is hit
+
+# Once expired, it's gone:
+print(os.getenv("MY_API_KEY"))  # None
+
+# You can also inject secrets into subprocesses:
+import subprocess
+env = secmap.to_env()
+subprocess.run(["python3", "child_script.py"], env=env)
+```
+Use AWS? Gotcha covered.
+```python
+import boto3
+from pydepguardnext.standalone import secrets_manager as sm
+
+ssm = boto3.client("ssm")
+
+def fetch_ssm_secret(param_name: str) -> str:
+    response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+    return response["Parameter"]["Value"]
+
+# Fetch and protect
+secrets = {
+    "AWS_SECRET": sm.SecretEntry(
+        fetch_ssm_secret("/myapp/aws-secret"),
+        read_once=True,
+        mock_env=True,
+        mock_env_name="AWS_SECRET"
+    ),
+    "JWT_SIGNING_KEY": sm.SecretEntry(
+        fetch_ssm_secret("/myapp/jwt-key"),
+        ttl_seconds=30
+    ),
+}
+
+# Patch environment securely
+secmap = sm.use_secrets(secrets)
+
+# Safe usage
+print(os.environ["AWS_SECRET"])  # One-time use, then gone
+```
+
+## Why Use This?
+
+- Secrets pulled at runtime (from SSM, Vault, or any API) stay in-memory only
+- Avoids leaking secrets via logs, ps aux, or .env files
+- Auto-redacts after TTL or read count is hit
+- Drop-in support for subprocesses via .to_env()
+- Optional replacement for os.environ via SecureEnviron class
+- Use it in tests to isolate secrets per test run
+
+  > And this is just one tool of many that PDG will have. If you don't want the full runtime, you don't have to use it. You get all of the benefits of PDG's tooling base with no downsides, all on stdlib!
+  
+  > And if you decide you do want to go beyond standalone, its right there in your site-packages waiting to be used.
+
+  > Compressed, PyDepGuardNext is only 74 KB.
+
+
+
+
 ## New to current version:
 - [ea8081f](https://github.com/nuclear-treestump/pylock-dependency-lockfile/commit/ea8081f3b3444014e1e21a4eacce066657b956d7) - latest - Added Temporal Timeboxing wrapper to all functions. This can reject calls if they fall outside accepted window, and will be controllable through PYDEP_SEC_TIMING
 - [2e718c7](https://github.com/nuclear-treestump/pylock-dependency-lockfile/commit/2e718c7bc5407fa307ca44d6680b7998d5781d55) - Signed functions with signature in .sigstore + GPG Signed package
