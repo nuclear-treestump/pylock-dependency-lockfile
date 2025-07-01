@@ -5,6 +5,7 @@ from .run import add_run_command
 from .shared import setup_logging
 from .validate import add_validate_command
 from .generate import add_generate_command
+from .compat import add_run_command as compat_add_run_command
 
 def main():
     parser = argparse.ArgumentParser(
@@ -17,6 +18,7 @@ def main():
     add_run_command(subparsers)
     add_validate_command(subparsers)
     add_generate_command(subparsers)
+    compat_add_run_command(subparsers)
 
     args = parser.parse_args()
 

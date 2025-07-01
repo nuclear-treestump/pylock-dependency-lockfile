@@ -66,6 +66,8 @@ class PyDepSecMap:
         self._secrets: Dict[str, SecretEntry] = {}
 
     def add(self, name: str, entry: SecretEntry):
+        if not isinstance(name, str):
+            raise TypeError(f"Secret key must be a string, got {type(name).__name__}")
         self._secrets[name] = entry
 
     def get(self, name: str) -> Optional[str]:

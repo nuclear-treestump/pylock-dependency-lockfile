@@ -1,25 +1,149 @@
 import os
-from pydepguardnext.api.secrets.secretentry import PyDepSecMap
-from pydepguardnext.api.log.logit import logit
 import sys
 from collections.abc import MutableMapping
+import json
+import time
+from typing import Optional, Dict, Any
+import threading
+from dataclasses import dataclass, field
 
-logslug = "api.secrets.os_patch"
+os.environ["PYDEP_STANDALONE_NOSEC"] = "1"
+
+def log_event(event_type: str, payload: dict):
+    print(json.dumps({
+        "event": event_type,
+        "timestamp": time.time(),
+        "payload": payload
+    }))
+
+@dataclass
+class SecretEntry:
+    value: str
+    access_id: Optional[str] = None
+    ttl_seconds: Optional[int] = None
+    read_once: bool = False
+    read_max: Optional[int] = None
+    mock_env: bool = False
+    mock_env_name: Optional[str] = None
+
+    created_at: float = field(default_factory=time.time)
+    reads: int = 0
+    expired: bool = False
+    def __init__(
+        self,
+        value: str,
+        access_id: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        read_once: bool = False,
+        read_max: Optional[int] = None,
+        mock_env: bool = False,
+        mock_env_name: Optional[str] = None
+    ):
+        self._value = value
+        self.access_id = access_id
+        self.ttl = ttl_seconds
+        self.read_once = read_once
+        self.read_max = read_max
+        self.mock_env = mock_env
+        self.mock_env_name = mock_env_name or ""
+        self.created_at = time.time()
+        self.reads = 0
+        self.expired = False
+
+    def is_expired(self) -> bool:
+        if self.expired:
+            return True
+        if self.ttl is not None and (time.time() - self.created_at) > self.ttl:
+            self.expired = True
+        if self.read_max is not None and self.reads >= self.read_max:
+            self.expired = True
+        return self.expired
+
+    def get(self) -> Optional[str]:
+        if self.is_expired():
+            return None
+        self.reads += 1
+        if self.read_once or (self.read_max and self.reads >= self.read_max):
+            self.expired = True
+        return self._value
+
+    def redact(self):
+        self._value = "***"
+        self.expired = True
+
+    def serialize(self) -> Dict[str, Any]:
+        return {
+            "access_id": self.access_id,
+            "ttl": self.ttl,
+            "read_once": self.read_once,
+            "read_max": self.read_max,
+            "reads": self.reads,
+            "expired": self.expired,
+            "mock_env": self.mock_env,
+            "mock_env_name": self.mock_env_name,
+            "value": "***" if self.expired else "<present>"
+        }
+
+class PyDepSecMap:
+    def __init__(self):
+        self._secrets: Dict[str, SecretEntry] = {}
+
+    def add(self, name: str, entry: SecretEntry):
+        if not isinstance(name, str):
+            raise TypeError(f"Secret key must be a string, got {type(name).__name__}")
+        self._secrets[name] = entry
+
+    def get(self, name: str) -> Optional[str]:
+        entry = self._secrets.get(name)
+        if not entry:
+            return None
+        value = entry.get()
+        if entry.access_id:
+            log_event("secret_access", {"key": name, "access_id": entry.access_id})
+        if entry.is_expired():
+            log_event("secret_expiry", {"key": name})
+        return value
+
+    def __getitem__(self, name: str):
+        return self.get(name)
+
+    def redact_expired(self):
+        for name, entry in self._secrets.items():
+            if entry.is_expired():
+                entry.redact()
+
+    def to_env(self) -> Dict[str, str]:
+        return {
+            entry.mock_env_name or name: entry.get()
+            for name, entry in self._secrets.items()
+            if entry.mock_env and not entry.is_expired()
+        }
+
+    def serialize(self):
+        return {k: v.serialize() for k, v in self._secrets.items()}
+
+def start_secret_watchdog(secmap: PyDepSecMap, interval=5):
+    def watchdog():
+        while True:
+            time.sleep(interval)
+            secmap.redact_expired()
+    thread = threading.Thread(target=watchdog, daemon=True)
+    thread.start()
 
 class SecureEnviron(MutableMapping):
     """
-    A secure, secrets-aware replacement for `os.environ`.
+    A secure, secrets-aware replacement for os.environ.
 
-    SecureEnviron enforces access policies on runtime secrets managed by `PyDepSecMap`,
+    SecureEnviron enforces access policies on runtime secrets managed by PyDepSecMap,
     transparently simulating environment variable injection with support for:
     - TTL (time-to-live)
     - One-time reads or capped read counts
-    - Remapped environment variable names via `mock_env_name`
+    - Remapped environment variable names via mock_env_name
     - Redaction after expiration or disallowed access
 
-    Compatible with all common dictionary methods including `__getitem__`, `__contains__`,
-    and iteration (`for key in environ:`). Designed for sandboxed scripts that require
-    controlled access to sensitive data without leaking real `os.environ` state.
+    Compatible with all common dictionary methods including __getitem__, __contains__,
+    and iteration (for key in environ:). Designed for sandboxed scripts that require
+    controlled access to sensitive data without leaking real os.environ state.
 
     Parameters
     ----------
@@ -194,8 +318,57 @@ def patch_environ_with_secmap(secmap: PyDepSecMap):
     sys.modules["os"].environ = os.environ
     sys.modules["os"].getenv = os.getenv
 
-    logit("os.environ and getenv patched with SecureEnviron", "i", source=f"{logslug}.{__name__}")
+    log_event("secure_environ_patched", {
+        "timestamp": time.time(),
+        "source": f"{__name__}",
+        "secrets_count": len(secmap._secrets)
+    })
 
 def auto_patch_from_secrets(secmap: PyDepSecMap):
     if any(s.mock_env for s in secmap._secrets.values()):
         patch_environ_with_secmap(secmap)
+
+from typing import NamedTuple
+class SecretsHandle(NamedTuple):
+    secmap: PyDepSecMap
+    to_env: Dict[str, str]
+
+def use_secrets(secrets: Dict[str, SecretEntry], auto_patch=True) -> SecretsHandle:
+    """
+    Creates a PyDepSecMap from a dictionary of secrets and optionally patches os.environ.
+
+    Parameters
+    ----------
+    secrets : dict[str, SecretEntry]
+        A dictionary mapping keys to SecretEntry objects.
+    auto_patch : bool
+        Whether to automatically patch os.environ with SecureEnviron.
+
+    Note
+    ----
+    If subprocesses are spawned, use `secmap.to_env()` and pass it explicitly
+    to avoid secret leakage, since SecureEnviron is not inherited across processes.
+
+    Returns
+    -------
+    PyDepSecMap
+    """
+    secmap = PyDepSecMap()
+    for k, v in secrets.items():
+        secmap.add(k, v)
+
+    if auto_patch:
+        auto_patch_from_secrets(secmap)
+
+    return SecretsHandle(secmap=secmap, to_env=secmap.to_env())
+
+
+__all__ = [
+    "SecretEntry",
+    "PyDepSecMap",
+    "SecureEnviron",
+    "use_secrets",
+    "patch_environ_with_secmap",
+    "auto_patch_from_secrets",
+    "start_secret_watchdog"
+]
