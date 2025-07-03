@@ -128,23 +128,46 @@ def test_teardown_timer_kills():
     print(f"Only remnants should be the interpreters in {Path(renamed).resolve()}. Known Windows bug. No userland files survived in fakeroot. I win.")
 
 @pytest.mark.integration
-def test_lambda_runtime_executes_known_script_with_guard():
+def test_lambda_runtime_executes_known_script_with_guard_cli():
     temp_dir = Path(tempfile.mkdtemp())
-    script = temp_dir / "new_script.py"
-    with open("new_script.py", "r", encoding="utf-8") as f:
-        script_content = f.read()
-    script.write_text(script_content)
-    print("TEST START: Running script with guard")
-    g_time = time.time()
-    from pydepguardnext.api.runtime.airjail import prepare_fakeroot
-    from pydepguardnext.api.runtime.pydep_lambda import create_lambda_venv, launch_lambda_runtime
-    app_dir = prepare_fakeroot(script_path=script, hash_suffix="run", base_dir=temp_dir, persist=True)
-    py_bin = create_lambda_venv(app_dir, Path("."))
+    script = temp_dir / "test_script.py"
 
-    result_code = launch_lambda_runtime(py_bin, app_dir, jit_deps=True)
-    completed_time = time.time() - g_time
-    print(f"TEST END: test run completed in {completed_time:.2f} seconds")
-    assert result_code == 0
+    # Write a basic test script
+    script.write_text("import requests\nprint('Hello from Lambda!')\n")
+    os.environ.pop("PYDEP_STANDALONE_NOSEC", None)  # Ensure no standalone mode interference
+    os.environ["PYDEP_NO_CAPTURE"] = "1"
+    g_time = time.time()
+    import sys
+    print(f"SYS_EXECUTABLE: {sys.executable}")
+
+    try:
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "pydepguardnext",
+                "run",
+                str(script),
+                "--lambda",
+                "--prewarm",
+                "--repair",
+                "--persist",
+
+            ],
+            capture_output=True,
+            text=True,
+            cwd=temp_dir
+        )
+
+        completed_time = time.time() - g_time
+        print(f"TEST END: CLI run completed in {completed_time:.2f} seconds")
+        print("STDOUT:", result.stdout)
+        print("STDERR:", result.stderr)
+
+        assert result.returncode == 0
+        assert "Hello from Lambda!" in result.stdout
+    finally:
+        # Cleanup optional — temp_dir may be reused for debugging
+        pass
+    
     py_bin = create_lambda_venv(app_dir, Path("."))
     print(f"TEST WITH PERSIST: Reusing venv at {py_bin}")
     result_code_2 = launch_lambda_runtime(py_bin, app_dir, jit_deps=True)

@@ -1,4 +1,5 @@
 import os
+os.environ["PYDEP_STANDALONE_NOSEC"] = "1"
 import sys
 from collections.abc import MutableMapping
 import json
@@ -6,8 +7,10 @@ import time
 from typing import Optional, Dict, Any
 import threading
 from dataclasses import dataclass, field
+from pydepguardnext import __child, __skip_secure_boot
 
-os.environ["PYDEP_STANDALONE_NOSEC"] = "1"
+if not __child and __skip_secure_boot:
+    os.environ["PYDEP_STANDALONE_NOSEC"] = "1"
 
 def log_event(event_type: str, payload: dict):
     print(json.dumps({

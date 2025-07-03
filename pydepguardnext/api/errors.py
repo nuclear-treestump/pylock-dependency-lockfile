@@ -62,3 +62,7 @@ class PyDepListUnauthorizedAccessError(PyDepGuardError):
     """Raised when unauthorized access to a list is attempted."""
     code = 1600
 
+class RuntimeInterdictionError(PyDepGuardError):
+    """Raised when a runtime interdiction is triggered."""
+    code = 9999
+

@@ -2,7 +2,7 @@ from pathlib import Path
 import sys
 from pydepguardnext.api.log.logit import logit
 from pydepguardnext.api.lockfile.manager import LockfileManager
-from pydepguardnext.api.validator import validate_environment
+from pydepguardnext.api.compat.validator import validate_environment_legacy as validate_environment
 from .shared import setup_logging
 
 logslug = "cli.validate"

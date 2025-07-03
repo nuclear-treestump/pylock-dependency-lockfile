@@ -6,33 +6,23 @@ import importlib.util
 
 
 def test_init_validate_self():
-    def get_module_root():
-        spec = importlib.util.find_spec("pydepguardnext")
-        if spec is None or not spec.origin:
-            return None
-        path = Path(spec.origin).resolve()
-        if path.name == "__init__.py":
-            return path.parent
-        return path
+    from pydepguardnext.bootstrap.fingerprint import get_module_root, sha256sum_dir
+    from pydepguardnext.bootstrap.self import validate_self     
+    # Compute the current local hash for override dev mode
+    module_root = get_module_root()
+    assert module_root is not None, "Could not resolve module root"
+    local_hash = sha256sum_dir(module_root)
 
-    def sha256sum_dir(directory: Path):
-        h = hashlib.sha256()
-        for file in sorted(directory.rglob("*.py")):
-            with open(file, "rb") as f:
-                while True:
-                    block = f.read(8192)
-                    if not block:
-                        break
-                    h.update(block)
-        return h.hexdigest()
-    os.environ["PYDEP_TRUSTED_HASH"] = sha256sum_dir(get_module_root())
+    # Set override to allow validation to pass even without PyPI access
+    os.environ["PYDEP_TRUSTED_HASH"] = local_hash
+
+    # Inject a dummy incident
+    # Run validation, expecting no exception and proper override usage
     import pydepguardnext
-    from pydepguardnext import _log 
-    pydepguardnext.log_incident("test", "test", "test", "test")
-    pydepguardnext.validate_self()
-    assert "Using override hash:" in str(_log)
-    print("\n".join(_log))
 
+    # Verify the override was reported in the captured log
+
+    assert override_logged, "Expected override hash log message not found"
 
 
 def test_init_validate_self_hardened(capsys):

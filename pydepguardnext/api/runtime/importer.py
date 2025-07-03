@@ -1,4 +1,5 @@
 import builtins
+from types import ModuleType
 import importlib
 from importlib import metadata
 import subprocess
@@ -10,15 +11,15 @@ import importlib.abc
 import inspect
 import time
 import json
-from pydepguardnext import PyDepBullshitDetectionError
+from pydepguardnext.api.errors import RuntimeInterdictionError
 from pydepguardnext.api.log.logit import logit
 from typing import Tuple
 import hashlib
 from pathlib import Path
-from .integrity import INTEGRITY_CHECK, run_integrity_check, jit_check
+from .integrity import run_integrity_check, jit_check
 from collections import defaultdict
-
-JIT_INTEGRITY_CHECK = jit_check
+from types import MappingProxyType
+print("ID OF JIT_CHECK:", id(jit_check))
 _original_import = builtins.__import__
 _original_importlib_import_module = importlib.import_module
 _global_timecheck = 0
@@ -26,7 +27,37 @@ _current_modules = metadata.distributions()
 _timing = float()
 _urltiming = float()
 _timepermodule = defaultdict(list)
+_original_reload = importlib.reload
 
+try:
+    from pydepguardnext import GLOBAL_INTEGRITY_CHECK
+except ImportError:
+    print("GLOBAL_INTEGRITY_CHECK not found.")
+
+try:
+    if type(GLOBAL_INTEGRITY_CHECK) is not MappingProxyType:
+        len(GLOBAL_INTEGRITY_CHECK)
+        from pydepguardnext.api.runtime.integrity import jit_check, run_integrity_check, start_patrol
+        print("FORCING INTEGRITY CHECK")
+        from uuid import uuid4
+        jit_uuid = str(uuid4())
+        jit_check(jit_uuid) # You may not like this.. but I don't care
+        print("GLOBAL_INTEGRITY_CHECK is not a MappingProxyType! THIS IS A PROBLEM!")
+        print("Reimporting integrity module to ensure correct JIT checks.")
+        from pydepguardnext.api.runtime.integrity import GLOBAL_INTEGRITY_CHECK
+except:
+    pass
+
+def guarded_reload(module):
+    print("ENTERING GUARDED_RELOAD")
+    print("ID OF JIT_CHECK:", id(jit_check))
+    if module.__name__.startswith("pydepguardnext"):
+        raise RuntimeInterdictionError(f"Reload blocked: {module.__name__}")
+    return _original_reload(module)
+
+importlib.reload = guarded_reload
+
+print("ID OF JIT_CHECK:", id(jit_check))
 
 logslug = "api.runtime.importer"
 
@@ -62,22 +93,28 @@ _blocklist = {
 
 _whitelist = set()
 def _preload_lists():
+    print("ENTERING PRELOAD_LISTS")
+    from pydepguardnext.api.runtime.integrity import jit_check
+    print("ID OF JIT_CHECK:", id(jit_check))
     from os import getenv
     global _whitelist, _blocklist, _known_aliases, _known_skip_pypi_modules
     _whitelist.add("pydepguardnext")
     _whitelist.add("pydepguard")
-    whitelist_temp = getenv("PYDEPGUARD_WHITELIST", "")
-    _whitelist.update(whitelist_temp.split(","))
-    _blocklist_temp = getenv("PYDEPGUARD_BLOCKLIST", "")
-    _blocklist.update(_blocklist_temp.split(","))
-    aliases_temp = getenv("PYDEPGUARD_ALIASES", "")
-    for alias_pair in aliases_temp.split(","):
-        if ":" in alias_pair:
-            src, dst = alias_pair.split(":", 1)
-            _known_aliases[src.strip()] = dst.strip()
+    whitelist_temp = getenv("PYDEPGUARD_WHITELIST")
+    if whitelist_temp:
+        _whitelist.update(whitelist_temp.split(","))
+    _blocklist_temp = getenv("PYDEPGUARD_BLOCKLIST")
+    if _blocklist_temp:
+        _blocklist.update(_blocklist_temp.split(","))
+    aliases_temp = getenv("PYDEPGUARD_ALIASES")
+    if aliases_temp:
+        for alias_pair in aliases_temp.split(","):
+            if ":" in alias_pair:
+                src, dst = alias_pair.split(":", 1)
+                _known_aliases[src.strip()] = dst.strip()
     skip_temp = getenv("PYDEPGUARD_SKIP_PYPI", "")
     _known_skip_pypi_modules.update(skip_temp.split(","))
-    if "pydepguardnext" in _whitelist and "pydepguard" in _whitelist and len(_whitelist) > 2 and getenv("PYDEPGUARD_WHITELIST", "") != "":
+    if "pydepguardnext" in _whitelist and "pydepguard" in _whitelist and len(_whitelist) > 2 and getenv("PYDEPGUARD_WHITELIST") != "":
         _blocklist = {"all"}
         # Setting whitelist assumes block all except those in whitelist
         # This is the expected behavior as using a whitelist activates implicit deny.
@@ -87,6 +124,8 @@ def _preload_lists():
     logit(f"Blocklist: {_blocklist}", "d", source=f"{logslug}.{_preload_lists.__name__}")
     logit(f"Known Aliases: {_known_aliases}", "d", source=f"{logslug}.{_preload_lists.__name__}")
     logit(f"Known Skip PyPI Modules: {_known_skip_pypi_modules}", "d", source=f"{logslug}.{_preload_lists.__name__}")
+    print("ID OF JIT_CHECK:", id(jit_check))
+    
 
     
 
@@ -117,6 +156,7 @@ def _package_exists(name: str) -> bool:
     check_time = time.time()
     global _urltiming
     global _timepermodule
+    purl = f"https://pypi.org/pypi/{name}/json"
     try:
         if name in _blocklist or "all" in _blocklist:
             logit(f"Skipping PyPI check for blocked package: {name}", "i", source=f"{logslug}.{_package_exists.__name__}")
@@ -130,14 +170,15 @@ def _package_exists(name: str) -> bool:
         if name in _known_skip_pypi_modules:
             logit(f"Skipping PyPI check for known module: {name}, as module does not exist.", "i", source=f"{logslug}.{_package_exists.__name__}")
             return False
-        with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json", timeout=2) as resp:
+        with urllib.request.urlopen(purl, timeout=2) as resp:
             _urltime = time.time() - check_time
             _urltiming += _urltime
             logit(f"Time taken to check package {name}: {_urltime:.2f} seconds", "i", source=f"{logslug}.{_package_exists.__name__}")
             return resp.status == 200
-    except Exception:
+    except Exception as e:
         logit(f"Time taken to check package {name}: {time.time() - check_time:.2f} seconds", "i", source=f"{logslug}.{_package_exists.__name__}")
         logit(f"Package '{name}' not found on PyPI", "e", source=f"{logslug}.{_package_exists.__name__}")
+        logit(f"Exception during PyPI check for package {name}: {e} at url {purl}", "e", source=f"{logslug}.{_package_exists.__name__}")
         return False
 
 
@@ -170,9 +211,9 @@ class AutoInstallFinder(importlib.abc.MetaPathFinder):
             if not is_real:
                 raise
             try:
-                if id(_patched_import) != INTEGRITY_CHECK["importer._patched_import"]:
+                if id(_patched_import) != GLOBAL_INTEGRITY_CHECK["importer._patched_import"]:
                     logit(f"ID MISMATCH: _patched_import has been modified, aborting auto-install", "f", source=f"{logslug}.{type(self).__name__}")
-                    raise PyDepBullshitDetectionError(expected=INTEGRITY_CHECK["importer._patched_import"], found=id(_patched_import))
+                    raise RuntimeInterdictionError(expected=GLOBAL_INTEGRITY_CHECK["importer._patched_import"], found=id(_patched_import))
                 logit(f"Auto-installing: {fullname}", "i", source=f"{logslug}.{type(self).__name__}")
                 logit(f"Installing {fullname} ...", "i", source=f"{logslug}.{type(self).__name__}")
                 install_time = time.time()
@@ -233,9 +274,9 @@ def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
             raise
 
         try:
-            if id(_patched_import) != INTEGRITY_CHECK["importer._patched_import"]:
+            if id(_patched_import) != GLOBAL_INTEGRITY_CHECK["importer._patched_import"]:
                 logit(f"ID MISMATCH: _patched_import has been modified, aborting auto-install", "f", source=f"{logslug}.{_patched_import.__name__}")
-                raise PyDepBullshitDetectionError(expected=INTEGRITY_CHECK["importer._patched_import"], found=id(_patched_import))
+                raise RuntimeInterdictionError(expected=GLOBAL_INTEGRITY_CHECK["importer._patched_import"], found=id(_patched_import))
             logit(f"__import__ fallback: attempting to install {pkg_name}", "i", source=f"{logslug}.{_patched_import.__name__}")
             logit(f"Installing {pkg_name} ...", "i", source=f"{logslug}.{_patched_import.__name__}")
             install_time = time.time()
@@ -277,9 +318,9 @@ def _patched_importlib_import_module(name, package=None):
             is_real, reason = _is_probably_real_package(top)
         if is_real:
             if _package_exists(top):
-                if id(_patched_importlib_import_module) != INTEGRITY_CHECK["importer._patched_importlib_import_module"]:
+                if id(_patched_importlib_import_module) != GLOBAL_INTEGRITY_CHECK["importer._patched_importlib_import_module"]:
                     logit(f"ID MISMATCH: _patched_importlib_import_module has been modified, aborting auto-install", "f", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
-                    raise PyDepBullshitDetectionError(expected=INTEGRITY_CHECK["importer._patched_importlib_import_module"], found=id(_patched_importlib_import_module))
+                    raise RuntimeInterdictionError(expected=GLOBAL_INTEGRITY_CHECK["importer._patched_importlib_import_module"], found=id(_patched_importlib_import_module))
                 logit(f"Installing {top} ...", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                 install_time = time.time()
                 subprocess.check_call([sys.executable, "-m", "pip", "install", top, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -341,40 +382,63 @@ def generate_import_suggestions(stats: dict, median: float, average: float, thre
 
 
 def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
+    from pydepguardnext.api.runtime.integrity import jit_check
+    print("ENTERING INSTALL_MISSING_AND_RETRY")
+    print("ID OF JIT_CHECK:", id(jit_check))
     import contextlib
     import io
     global _global_timecheck, _timepermodule
     _global_timecheck = timecheck or time.time()
     if not cached:
+        print("NOT CACHED, RUNNING JIT CHECK")
+        print("ID OF JIT_CHECK:", id(jit_check))
         patch_all_import_hooks()
-    from pydepguardnext import get_gtime
+    from pydepguardnext.bootstrap import clock
     from datetime import datetime 
 
     combined = io.StringIO()
 
     _preload_lists()
 
-    prerun_details = {"obj_type": "prerun", "script_path": script_path, "time": datetime.now().isoformat(), "cached": cached, "parent_uuid": INTEGRITY_CHECK["global_.jit_check_uuid"]}
+    prerun_details = {
+        "obj_type": "prerun",
+        "script_path": script_path,
+        "time": datetime.now().isoformat(),
+        "cached": cached,
+        "parent_uuid": f"{GLOBAL_INTEGRITY_CHECK.get('global_.jit_check_uuid', "NO PARENT UUID")}"
+    }
+    print(prerun_details)
+    # Capture the output of the script while redirecting stdout and stderr
+    combined = io.StringIO()
     with contextlib.redirect_stdout(combined), contextlib.redirect_stderr(combined):
-        result = runpy.run_path(script_path)
+        try:
+            result = runpy.run_path(script_path)  # Execute the script
+        except Exception as e:
+            # Log any errors that occur during script execution
+            logit(f"Error while running the script: {str(e)}", "e", source="USER_SCRIPT")
+            raise
+        else:
+            # If the script runs successfully, capture its output
+            logit(f"Script run completed with result: {result}", "i", source="USER_SCRIPT")
 
-    print(result)
-
+    # Collect runtime info and logs
     loglines = combined.getvalue().strip().splitlines()
-
     header_data = {
         "obj_type": "postrun",
         "end_time": datetime.now().isoformat(),
         "prerun_details": prerun_details,
         "script_path": script_path,
         "cached": cached,
-        "dependencies_installed": ', '.join(_timepermodule.keys()) if _timepermodule else 'None'
+        "dependencies_installed": ', '.join(_timepermodule.keys()) if _timepermodule else 'None',
+        "exit_code": 0  # Assuming successful execution, this can be updated later
     }
 
+    # Append the header and loglines to the final logs
     loglines.insert(0, str(prerun_details))
     loglines.append(str(header_data))
-
+    
     logit("\n".join(loglines), "u", source="USER_SCRIPT", redir_file="pydepguard.runtime.log")
+
     global _timing, _urltiming
     timeblock = {"url": _urltiming, "download": _timing}
     dists = metadata.distributions()
@@ -391,4 +455,4 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
     if suggestions:
         logit(f"Import suggestions: {', '.join(suggestions)}", "z", source=f"{logslug}.{install_missing_and_retry.__name__}")
 
-    return result, dist_list, timeblock
+    return header_data, dist_list, timeblock

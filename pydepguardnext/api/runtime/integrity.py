@@ -5,10 +5,10 @@ from time import time, sleep
 from sys import exit
 from types import MappingProxyType
 
-INTEGRITY_CHECK = {}
-INTEGRITY_UUID = {}
+INTEGRITY_CHECK = dict()
+INTEGRITY_UUID = dict()
 INTEGRITY_WATCHDOG = True
-INTEGRITY_CHECK_DIGEST = {}
+INTEGRITY_CHECK_DIGEST = dict()
 INTEGRITY_CHECK_FROZEN = False
 INTEGRITY_UUID_FROZEN = False
 INTEGRITY_WATCHDOG_STARTED = False
@@ -21,7 +21,7 @@ class WatchdogViolationError(Exception):
 
 def jit_check(check_uuid=None):
     # Here's where the bullshit begins...
-    from pydepguardnext import _total_global_time, get_gtime
+    from pydepguardnext.bootstrap import clock
     from time import time
     _syslock = time() - _total_global_time
     """
@@ -38,7 +38,17 @@ def jit_check(check_uuid=None):
     # This blocks monkeypatching for these functions and classes, ensuring that any changes to them will be detected.
     # If in HARDENED mode, this will raise a PyDepBullshitDetectionError if the integrity check fails.
     global INTEGRITY_CHECK, INTEGRITY_CHECK_DIGEST, INTEGRITY_CHECK_FROZEN, INTEGRITY_UUID, INTEGRITY_UUID_FROZEN, SYSLOCK_TIMING
+    INTEGRITY_CHECK = dict()
+    INTEGRITY_CHECK_FROZEN = False
+    INTEGRITY_CHECK_DIGEST = dict()
+    INTEGRITY_UUID = dict()
+    INTEGRITY_UUID_FROZEN = False
+    SYSLOCK_TIMING = 0.0
+    if not isinstance(INTEGRITY_UUID, MappingProxyType):
+        INTEGRITY_UUID.update({"global_.uuid": str(check_uuid)})
     INTEGRITY_UUID.update({"global_.uuid": str(check_uuid)})
+    if not isinstance(INTEGRITY_UUID, MappingProxyType):
+        INTEGRITY_UUID = MappingProxyType(INTEGRITY_UUID)  
     INTEGRITY_CHECK.update({
         "importer._patched_import": id(_patched_import),
         "importer._patched_importlib_import_module": id(_patched_importlib_import_module),
@@ -63,13 +73,14 @@ def jit_check(check_uuid=None):
     })
 
     digest = sha256(dumps(INTEGRITY_CHECK, sort_keys=True).encode("utf-8")).hexdigest()
+    if not isinstance(INTEGRITY_CHECK, MappingProxyType):
+        INTEGRITY_CHECK = MappingProxyType(INTEGRITY_CHECK)  
     INTEGRITY_CHECK_DIGEST = {"sha256digest": digest}
-    INTEGRITY_CHECK_DIGEST = MappingProxyType(INTEGRITY_CHECK_DIGEST)
-    INTEGRITY_CHECK = MappingProxyType(INTEGRITY_CHECK)
-    INTEGRITY_UUID = MappingProxyType(INTEGRITY_UUID)
-    SYSLOCK_TIMING = time() - _total_global_time
-    print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Absolute last moment of system not sealed at global time:  {time() - _total_global_time:.4f} seconds.")
-    print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Runtime sealed in {SYSLOCK_TIMING - _syslock:.6f} seconds.")
+    if not isinstance(INTEGRITY_CHECK_DIGEST, MappingProxyType):
+        INTEGRITY_CHECK_DIGEST = MappingProxyType(INTEGRITY_CHECK_DIGEST)
+    SYSLOCK_TIMING = clock.since_boot()
+    print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Absolute last moment of system not sealed at global time:  {clock.since_boot()} seconds.")
+    print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Runtime sealed in {SYSLOCK_TIMING - _syslock:.6f} seconds.")
     # And this is the point where tampering with PyDepGuardNext's integrity check becomes impossible.
     # Once this is called, the integrity check is frozen and cannot be modified.
     # This happens in 0.001 seconds from invocation to completion. 
@@ -86,7 +97,7 @@ def jit_check(check_uuid=None):
 
 def get_prng_check():
     import random
-    from pydepguardnext import _total_global_time, get_gtime
+    from pydepguardnext.bootstrap import clock
     random_bytes_check = list()
     count = 10
     while count > 0:
@@ -95,14 +106,14 @@ def get_prng_check():
         count -= 1
     bytes_check_set = set(random_bytes_check)
     if len(bytes_check_set) != len(random_bytes_check):
-        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity]  [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Random integer check failed! Integers are not unique.")
-        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity]  [{INTEGRITY_CHECK['global_.jit_check_uuid']}] RUNTIME COMPROMISED!")
+        print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity]  [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Random integer check failed! Integers are not unique.")
+        print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity]  [{INTEGRITY_CHECK['global_.jit_check_uuid']}] RUNTIME COMPROMISED!")
         raise WatchdogViolationError("Random integer check failed! Integers are not unique.") from None
 
 
 def _background_prng_check():
     import random
-    from pydepguardnext import _total_global_time, get_gtime
+    from pydepguardnext.bootstrap import clock
     while True:
         interval = random.randint(10, 30)
         sleep(interval)
@@ -113,7 +124,7 @@ def _background_prng_check():
                 return
             else:
                 get_prng_check()
-                print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Rolling some dice...")
+                print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Rolling some dice...")
         except Exception as e:
             raise WatchdogViolationError(f"Random integrity check failed: {e}") from None # This is a serious error, we should not continue if this happens.
 
@@ -122,7 +133,7 @@ def _background_prng_check():
 def _background_integrity_patrol():
     # Let loose the dogs of war.
     from random import uniform
-    from pydepguardnext import _total_global_time, get_gtime
+    from pydepguardnext.bootstrap import clock
     while True:
         interval = uniform(10, 30)
         sleep(interval)
@@ -130,12 +141,12 @@ def _background_integrity_patrol():
             response = ""
             if getenv("PYDEP_DISABLE_INTEGRITY_CHECK", "0") == "1" and getenv("PYDEP_HARDENED", "0") != "1": # Once again, two separate checks required.
                 # If integrity checks are disabled, we do not run the integrity check. This shortcircuits the patrol.
-                print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Integrity checks are disabled by environment variable.")
+                print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] Integrity checks are disabled by environment variable.")
                 return
             if getenv("PYDEP_I_HATE_FUN", "0") == "1": # If the user hates fun, we run the integrity check with no fun messages.
                 response = "Validating runtime integrity check..."
                 run_integrity_check()
-                print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {response}")
+                print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {response}")
             else:
                 resp = uniform(1,5)
                 resp_list = [
@@ -147,7 +158,7 @@ def _background_integrity_patrol():
                 ]
                 response = resp_list[int(resp)]
                 run_integrity_check()
-                print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {(response)}")
+                print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {(response)}")
                 # This was a planned feature but I can't currently ... test it. PyDepGuardNext's BSD goes off.
                 #if gettrace() is not None:
                 #    print("[INTEGRITY] [pydepguard] Active trace detected! This may indicate a debugger or runtime hook.")
@@ -162,7 +173,7 @@ def _background_integrity_patrol():
 def start_patrol():
     # This actually starts the background integrity patrol.
     # It runs in a separate thread and checks the integrity of the runtime every 10-30 seconds.
-    from pydepguardnext import _total_global_time, get_gtime
+    from pydepguardnext.bootstrap import clock
     from threading import Thread
     from datetime import datetime, timezone
     import random
@@ -193,10 +204,10 @@ def start_patrol():
         "prng_check_started_at_timestamp": datetime.now(timezone.utc).isoformat(),
         "watchdog_modules": {_background_prng_check.__name__, _background_integrity_patrol.__name__}
     })
-    watchdogtime = time() - _total_global_time
-    print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] Background integrity patrol started at {INTEGRITY_WATCHDOG['started_at_timestamp']} (Global time: {watchdogtime:.4f} seconds). Timedelta from JIT lock to watchdog activation: {watchdogtime - SYSLOCK_TIMING:.6f} seconds.")
-    print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] WATCHDOG PROVISIONED: {INTEGRITY_WATCHDOG['watchdog_modules']}")
-    print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] WATCHDOG THREADS: {INTEGRITY_WATCHDOG['thread']}")
+    watchdogtime = clock.since_boot()
+    print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] Background integrity patrol started at {INTEGRITY_WATCHDOG['started_at_timestamp']} (Global time: {watchdogtime:.4f} seconds). Timedelta from JIT lock to watchdog activation: {watchdogtime - SYSLOCK_TIMING:.6f} seconds.")
+    print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] WATCHDOG PROVISIONED: {INTEGRITY_WATCHDOG['watchdog_modules']}")
+    print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{INTEGRITY_WATCHDOG['uuid']}] WATCHDOG THREADS: {INTEGRITY_WATCHDOG['thread']}")
 
 
 def run_integrity_check():
@@ -209,7 +220,8 @@ def run_integrity_check():
     from pydepguardnext.api.runtime.importer import _patched_import, _patched_importlib_import_module, AutoInstallFinder
     from pydepguardnext.api.log.logit import logit
     from pydepguardnext.api.runtime.airjail import maximum_security, disable_socket_access, disable_file_write, disable_network_access, disable_urllib_requests, block_ctypes, enable_sandbox_open, patch_environment_to_venv, prepare_fakeroot
-    from pydepguardnext import PyDepBullshitDetectionError, _total_global_time, get_gtime
+    from pydepguardnext.bootstrap import clock
+    from pydepguardnext.api.errors import RuntimeInterdictionError
     # Snapshot of current state of the integrity check.
     # This gets hashed and compared to the original integrity check.
     # If they differ, we raise a PyDepBullshitDetectionError.
@@ -241,10 +253,7 @@ def run_integrity_check():
     ).hexdigest()
 
     if current_digest != INTEGRITY_CHECK_DIGEST["sha256digest"] and getenv("PYDEP_HARDENED", "0") == "1":
-        raise PyDepBullshitDetectionError(
-            expected=INTEGRITY_CHECK_DIGEST["sha256digest"],
-            found=current_digest
-        ) from None # No trace for you
+        raise RuntimeInterdictionError(f"expected=INTEGRITY_CHECK_DIGEST['sha256digest'],found=current_digest") from None # No trace for you
     elif current_digest != INTEGRITY_CHECK_DIGEST["sha256digest"] and getenv("PYDEP_HARDENED", "0") != "1" and getenv("PYDEP_DISABLE_INTEGRITY_CHECK", "0") != "1": # Two separate checks required. This is an 'and', not an 'or'.
         # If we are not in hardened mode, we log the integrity check failure but do not raise an error.
         # This allows the program to continue running, but we log the integrity check failure.
@@ -254,8 +263,8 @@ def run_integrity_check():
                 if value != INTEGRITY_CHECK[key]:
                     broken_values.append((key, value))
         for key, value in broken_values:
-            print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] {key}: {value}")
-        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] Integrity hash check failed! Expected: {INTEGRITY_CHECK_DIGEST}, Found: {current_digest}")
-        print(f"[{get_gtime()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] This is not a hardened environment, continuing without raising an error.")
+            print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] Function {key}: ID: {value} (expected: {INTEGRITY_CHECK[key]})")
+        print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] Integrity hash check failed! Expected: {INTEGRITY_CHECK_DIGEST}, Found: {current_digest}")
+        print(f"[{clock.timestamp()}] [INTEGRITY] [api.runtime.integrity] [{current_snapshot['global_.jit_check_uuid']}] [BROKEN INTEGRITY] This is not a hardened environment, continuing without raising an error.")
     else:
-        return time() - _total_global_time  # Return the time it took to run the integrity check
+        return clock.since_boot()  # Return the time it took to run the integrity check

@@ -6,6 +6,9 @@ from pydepguardnext.api.log.logit import logit
 
 logslug = "api.deps.walker"
 
+from typing import Literal
+
+
 @dataclass
 class ImportReference:
     module: str
@@ -160,3 +163,20 @@ def scan_script_for_imports(filepath: Path) -> tuple[list[ImportReference], list
     ]
 
     return refs, unbound_symbols
+
+ScanMode = Literal['full', 'top', 'dynamic', 'try_deps']
+
+def scan_script_by_mode(filepath: Path, mode: ScanMode = 'full') -> list[ImportReference]:
+    all_refs, _ = scan_script_for_imports(filepath)
+
+    match mode:
+        case 'full':
+            return all_refs
+        case 'top':
+            return [r for r in all_refs if r.context == 'static' and r.import_type in {'import', 'from'}]
+        case 'dynamic':
+            return [r for r in all_refs if r.context in {'static', 'dynamic'} and r.import_type in {'import', 'from', 'dynamic'}]
+        case 'try_deps':
+            return [r for r in all_refs if r.context == 'try']
+        case _:
+            return all_refs

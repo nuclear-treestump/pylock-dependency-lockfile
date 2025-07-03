@@ -8,9 +8,10 @@ import time
 import hashlib
 import json
 from pathlib import Path
-from pydepguardnext import PyDepBullshitDetectionError
+from pydepguardnext.api.errors import RuntimeInterdictionError
 from pydepguardnext.api.runtime.importer import install_missing_and_retry
 from pydepguardnext.api.log.logit import logit
+from pydepguardnext.api.runtime.integrity import jit_check
 
 g_time = 0
 
@@ -20,6 +21,9 @@ def run_with_repair(script_path: str, max_retries: int = 5):
     """Executes a script with self-healing retry logic."""
     global g_time
     g_time = time.time()
+    print("ENTERING RUN_WITH_REPAIR")
+    print("ID OF JIT_CHECK:", id(jit_check))
+
     logit(f"PyDepGuard self-healing guard started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(g_time))}", "i", source=f"{logslug}.{run_with_repair.__name__}")
     logit(f"Running script with self-healing logic: {script_path}", "i", source=f"{logslug}.{run_with_repair.__name__}")
     for attempt in range(max_retries):
@@ -30,6 +34,8 @@ def run_with_repair(script_path: str, max_retries: int = 5):
             if cached_result:
                 logit(f"Using cached result for {script_path}", "i", source=f"{logslug}.{run_with_repair.__name__}")
                 is_cached = True
+            print("STARTING ACTUAL RUN")
+            print("ID OF JIT_CHECK:", id(jit_check))
             result, deps, _timing = install_missing_and_retry(script_path, timecheck=g_time, cached=is_cached)
             if not is_cached:
                 sha = _compute_sha256(script_path)
@@ -100,7 +106,7 @@ def load_cached_result(script_path: str):
         if payload_sha != lockfile_hash_obj.get("lockfile_sha256"):
             logit(f"LOCKFILE MISMATCH!", "f", source=f"{logslug}.{load_cached_result.__name__}")
             logit(f"Environment Compromised.", "f", source=f"{logslug}.{load_cached_result.__name__}")
-            raise PyDepBullshitDetectionError(expected=payload_sha, found=lockfile_hash_obj.get("lockfile_sha256"))
+            raise RuntimeInterdictionError(expected=payload_sha, found=lockfile_hash_obj.get("lockfile_sha256"))
         if payload.get("sha256") == sha and "lockfile_sha256" in lockfile_hash_obj and lockfile_hash_obj["lockfile_sha256"] == payload_sha:
             logit(f"Lockfile SHA256 matches, using cached result.", "i", source=f"{logslug}.{load_cached_result.__name__}")
             logit(f"JIT resolution not needed, using cached deps.", "i", source=f"{logslug}.{load_cached_result.__name__}")

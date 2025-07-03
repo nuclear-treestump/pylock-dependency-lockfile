@@ -7,7 +7,8 @@ from typing import Any, Optional
 from pydepguardnext.api.auth.guard import SECRETS_LIST
 from pydepguardnext.api.runtime.integrity import INTEGRITY_CHECK
 from datetime import datetime, timezone
-from pydepguardnext import get_gtime, _total_global_time
+from pydepguardnext.bootstrap import clock
+
 import inspect
 
 def resolve_source(source="auto", max_depth=5):
@@ -44,7 +45,7 @@ class StartEndFilter(logging.Filter):
         super().__init__()
         self.start_str = "prerun"
         self.end_str = "postrun"
-        self.uuid = INTEGRITY_CHECK["global_.jit_check_uuid"]
+        self.uuid = GLOBAL_INTEGRITY_CHECK.get("global_.jit_check_uuid","NO UUID")
 
     def filter(self, record):
         if self.start_str in record.msg and self.uuid in record.msg:
@@ -65,11 +66,11 @@ class JSONFormatter(logging.Formatter):
     
 
 def _maybe_parse_startend_json_block(message):
-    if isinstance(message, dict) and message.get("obj_type") in {"prerun", "postrun"} and f"[{INTEGRITY_CHECK['global_.jit_check_uuid']}]" in message:
+    if isinstance(message, dict) and message.get("obj_type") in {"prerun", "postrun"} and f"[{GLOBAL_INTEGRITY_CHECK.get('global_.jit_check_uuid', 'NO UUID')}]" in message:
         return json.dumps(message)
     try:
         parsed = json.loads(message)
-        if isinstance(parsed, dict) and parsed.get("obj_type") in {"prerun", "postrun"} and f"[{INTEGRITY_CHECK['global_.jit_check_uuid']}]" in parsed.get("message", ""):
+        if isinstance(parsed, dict) and parsed.get("obj_type") in {"prerun", "postrun"} and f"[{GLOBAL_INTEGRITY_CHECK.get('global_.jit_check_uuid', 'NO UUID')}]" in parsed.get("message", ""):
             return json.dumps(parsed)
     except Exception:
         pass
@@ -192,12 +193,12 @@ def logit(
         lvl = logging.INFO
 
     elif source != "USER_SCRIPT":
-        message = f"[{get_gtime()}] [{source if source else 'SOURCE MISSING'}] [{INTEGRITY_CHECK['global_.jit_check_uuid']}] {message}"
-    if level in {"u", "x"}: 
+        message = f"[{clock.timestamp()}] [{source if source else 'SOURCE MISSING'}] [{GLOBAL_INTEGRITY_CHECK.get('global_.jit_check_uuid', 'NO UUID')}] {message}"
+    if level in {"u", "x"}:
         if redir_file:
             # Temporary handler for user_scripts or redirection
             from os import environ
-            uuid = INTEGRITY_CHECK["global_.jit_check_uuid"]
+            uuid = GLOBAL_INTEGRITY_CHECK.get("global_.jit_check_uuid", "NO UUID")
             runtime_handler = logging.FileHandler(environ.get("PYDEP_RUNTIME_LOG", "pydepguard.runtime.log"))
             integrity_handler = logging.FileHandler(environ.get("PYDEP_INTEGRITY_LOG", "pydepguard.integrity.log"))
             fmt = fmt if fmt is not None else _LOGGING_STATE["format"]

@@ -1,6 +1,6 @@
 import pydepguardnext.api.runtime.guard as guard
 import pydepguardnext.api.runtime.importer as importer
-from pydepguardnext import PyDepBullshitDetectionError
+from pydepguardnext.api.errors import RuntimeInterdictionError
 import tempfile
 import builtins
 import subprocess

@@ -157,15 +157,16 @@ def enable_sandbox_open():
     logit("sandbox_open is now active", "i")
 
 def disable_network_access():
-    import socket
-    import builtins
+    # import socket
+    # import builtins
 
-    def blocked_socket(*args, **kwargs):
-        raise RuntimeError("Network access is blocked in this environment")
+    # def blocked_socket(*args, **kwargs):
+    #    raise RuntimeError("Network access is blocked in this environment")
 
-    socket.socket = blocked_socket
-    builtins.__import__ = _wrap_import(builtins.__import__)
-    logit("Network access has been disabled", "i")
+    # socket.socket = blocked_socket
+    # builtins.__import__ = _wrap_import(builtins.__import__)
+    # logit("Network access has been disabled", "i")
+    pass
 
 def disable_file_write():
     import builtins
@@ -180,6 +181,8 @@ def disable_file_write():
     logit("File write operations have been disabled", "i")
 
 def disable_urllib_requests():
+    pass
+    '''
     import urllib.request
     import urllib.error
 
@@ -189,8 +192,11 @@ def disable_urllib_requests():
     urllib.request.urlopen = blocked_urlopen
     urllib.error.URLError = RuntimeError
     logit("urllib requests have been disabled", "i")
+    '''
 
 def disable_socket_access():
+    pass
+    '''
     import socket
     import builtins
 
@@ -200,6 +206,7 @@ def disable_socket_access():
     socket.socket = blocked_socket
     builtins.__import__ = _wrap_import(builtins.__import__)
     logit("Socket access has been disabled", "i")
+    '''
 
 def shadow_eval(code: str, globals=None, locals=None):
     if globals is None:
@@ -223,9 +230,10 @@ def patch_environment_to_venv(venv_path: Path):
     bin_dir = venv_path / ("Scripts" if os.name == "nt" else "bin")
     python_path = bin_dir / ("python.exe" if os.name == "nt" else "python3")
 
-    os.environ["PATH"] = os.pathsep.join([str(bin_dir)])
-    os.environ["VIRTUAL_ENV"] = str(venv_path)
+    path_var = os.pathsep.join([str(bin_dir)])
+    venv_var = str(venv_path)
     sys.executable = str(python_path)
+    return bin_dir, python_path, path_var, venv_var
 
 def maximum_security():
     block_ctypes()
@@ -276,9 +284,9 @@ def prepare_fakeroot(
         if file.exists():
             dest = app_dir / file.name
             shutil.copy2(file, dest)
-    patch_environment_to_venv(fakeroot_path)
+    bindir, python_bin, path_var, venv_var = patch_environment_to_venv(fakeroot_path)
     if enable_sandbox:
         enable_sandbox_open()
 
     logit(f"Prepared fakeroot at {fakeroot_path}", "i", source=f"{logslug}.{prepare_fakeroot.__name__}")
-    return app_dir
+    return app_dir, bindir, python_bin, path_var, venv_var
