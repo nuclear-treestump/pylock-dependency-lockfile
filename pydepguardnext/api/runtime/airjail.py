@@ -10,6 +10,49 @@ import types
 import sys
 from types import MappingProxyType 
 
+import os
+import stat
+from pathlib import Path
+
+JAIL_ROOT = Path(".").resolve(strict=True)
+
+def is_within_jail(path: Path) -> bool:
+    """
+    Verifies the given path is within the defined jail, even if symlinks are involved.
+    """
+    try:
+        # Realpath follows symlinks and collapses any `..` etc.
+        path_real = path.resolve(strict=True)
+        jail_real = JAIL_ROOT
+
+        # Fast case: check string prefix
+        if str(path_real).startswith(str(jail_real)):
+            return True
+
+        # Fallback: compare inodes to prevent mountpoint symlink escape
+        jail_dev_ino = os.stat(jail_real)
+        path_dev_ino = os.stat(path_real)
+
+        return jail_dev_ino.st_dev == path_dev_ino.st_dev and str(path_real).startswith(str(jail_real))
+
+    except FileNotFoundError:
+        # Even if file doesn't exist yet, block if its parent escapes jail
+        try:
+            parent = path.parent.resolve(strict=True)
+            return str(parent).startswith(str(JAIL_ROOT))
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+def check_jail_violation(path: Path, op="read"):
+    """
+    Raises if a path is outside the jail root, accounting for symlinks, fds, etc.
+    """
+    if not is_within_jail(path):
+        raise PermissionError(f"[PDG] Jail violation ({op}): {path}")
+
+
 logslug = "api.runtime.airjail"
 _sandbox_enabled = False
 _maximum_security_details = {}

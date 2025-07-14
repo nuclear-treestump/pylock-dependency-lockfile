@@ -40,22 +40,20 @@ def scan_module_preloaded(modname: str, module, sig_data: dict) -> dict:
     local_sigverify = {}
     local_results = {}
 
-    for name, obj in inspect.getmembers(module, inspect.isfunction):
-        fqname = f"{modname}.{name}"
+    def validate_func(name, obj, fqname, type="function"):
         if fqname.startswith("pydepguardnext.standalone."):
-            continue
+            return
         entry = sig_data.get(fqname, {})
-        if obj.__module__ != modname:
-            continue
         if entry:
             try:
+                obj = inspect.unwrap(obj)
                 computed = compute_digest(obj)
-                digest_bytes = computed  # locked bytes
+                digest_bytes = computed
                 sig_ok = validate_signature(digest_bytes, int(entry["sig"], 16))
                 match = (computed.hex() == entry["sha256"])
                 valid = match and sig_ok
 
-                result = MappingProxyType({  # wrap immediately
+                result = MappingProxyType({
                     "valid": valid,
                     "computed": computed.hex(),
                     "expected": entry["sha256"],
@@ -68,9 +66,7 @@ def scan_module_preloaded(modname: str, module, sig_data: dict) -> dict:
                     "fqname": fqname,
                     "compound_hash": hashlib.sha256(f"{id(obj)}-{computed.hex()}".encode()).hexdigest()
                 })
-
                 local_sigverify[fqname] = result
-
             except Exception as inner:
                 local_results[fqname] = MappingProxyType({
                     "valid": False,
@@ -83,6 +79,21 @@ def scan_module_preloaded(modname: str, module, sig_data: dict) -> dict:
                 "error": "No sigstore entry",
                 "fqname": fqname
             })
+
+    # Top-level functions
+    for name, obj in inspect.getmembers(module, inspect.isfunction):
+        if obj.__module__ != modname:
+            continue
+        fqname = f"{modname}.{name}"
+        validate_func(name, obj, fqname, type="function")
+
+    # Class methods
+    for cls_name, cls_obj in inspect.getmembers(module, inspect.isclass):
+        if cls_obj.__module__ != modname:
+            continue
+        for method_name, method_obj in inspect.getmembers(cls_obj, inspect.isfunction):
+            fqname = f"{modname}.{cls_name}.{method_name}"
+            validate_func(method_name, method_obj, fqname, type="method")
 
     return {
         "sigverify": MappingProxyType(local_sigverify),
@@ -98,6 +109,8 @@ def validate_all_functions(sigstore_path: Path = None, _log: list = None) -> dic
     results = {}
     base_path = Path(pydepguardnext.__file__).parent
     sigstore_path = sigstore_path or (base_path / ".sigstore")
+    import sys
+    sys._secure_memory_whitelist = True
 
     if not sigstore_path.exists():
         return {"error": "No .sigstore file found at the expected location."}
@@ -143,4 +156,5 @@ def validate_all_functions(sigstore_path: Path = None, _log: list = None) -> dic
                 results[mod] = {"valid": False, "error": str(e)}
 
     SIGVERIFIED = MappingProxyType(SIGVERIFY)
+    sys._secure_memory_whitelist = False
     return results

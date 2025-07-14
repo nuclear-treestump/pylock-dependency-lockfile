@@ -4,7 +4,6 @@ from pydepguardnext.api.runtime.guard import run_with_repair
 from pydepguardnext.api.runtime.no_guard import run_without_guard
 from pydepguardnext.api.log.logit import logit
 from pydepguardnext.api.policy.context import PDGContext, load_policy_context
-from pydepguardnext.api.runtime.integrity import jit_check
 from .shared import setup_logging
 
 logslug = "cli.run"
@@ -30,8 +29,6 @@ def add_run_command(subparsers):
     parser.set_defaults(handler=handle_run)
 
 def handle_run(args):
-    print("ENTERING HANDLE_RUN")
-    print("ID OF JIT_CHECK:", id(jit_check))
     setup_logging(args)
     script = Path(args.script).resolve()
     if not script.exists() or not script.is_file() or script.suffix != ".py":

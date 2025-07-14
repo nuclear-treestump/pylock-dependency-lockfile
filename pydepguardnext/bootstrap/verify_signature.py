@@ -6,7 +6,8 @@ from pydepguardnext.api.errors import PyDepIntegrityError
 from pydepguardnext.api.runtime.sigverify import validate_all_functions
 from pydepguardnext.bootstrap.clock import timestamp
 from typing import Dict, Tuple, Optional
-def verify_signature(jit_check_uuid: str) -> Dict:
+# Typing doesn't have a MappingProxyType, so we use Dict directly. Python doesn't like this, so NOQA is used to suppress the warning.
+def verify_signature(jit_check_uuid: str) -> Tuple[Dict[str, Dict[str, Optional[bool]]], int, int]: #NOQA
     """
     Perform sigstore signature verification across the package.
 
@@ -22,7 +23,8 @@ def verify_signature(jit_check_uuid: str) -> Dict:
     # Detect absence of sigstore
     if not sigstore_path.exists() and getenv("PYDEP_SKIP_SIGVER", "0") != "1":
         print(f"[INIT] [{timestamp()}] [SECURE] [sigverify] [{jit_check_uuid}] WARNING: .sigstore not found at {sigstore_path}. Skipping signature validation.")
-        return
+        return # type: ignore 
+    # Return early if sigstore is missing and skip is not set
 
     # Manual skip override triggers hard failure
     if getenv("PYDEP_SKIP_SIGVER", "0") == "1":
@@ -45,4 +47,4 @@ def verify_signature(jit_check_uuid: str) -> Dict:
 
     print(f"[INIT] [{timestamp()}] [SECURE] [sigverify] [{jit_check_uuid}] SIGVERIFY Stage 1 complete. {_total_count - _fail_count} of {_total_count} functions verified.")
     print(f"[METRIC] [{timestamp()}] [SECURE] [sigverify] [{jit_check_uuid}] SIGVERIFY frozen in {time.time() - _sigtime:.6f} seconds.")
-    return SIGVERIFIED
+    return SIGVERIFIED, _total_count, _fail_count # type: ignore #NOQA 

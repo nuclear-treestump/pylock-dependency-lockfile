@@ -18,9 +18,20 @@ class ANSI:
     BLUE = "\033[94m"
     GREY = "\033[90m"
 
-def render_boot_wall(fingerprint_data, fingerprint_hash, jit_data, signature_data=None, system_state="insecure", package="package", version="version"):
+def render_boot_wall(fingerprint_data, fingerprint_hash, jit_data, signature_data=None, system_state="insecure", package="package", version="version", local_hash="", expected_hash="", watchdog_data=None):
+    wd_count_line = "N/A"
+    if watchdog_data:
+        import re
+        integ_search = re.compile(r"IntegrityPatrolThread.+" )
+        rng_search = re.compile(r"RandomCheckThread.+" )
+        rng_count = 0
+        integ_count = 0
+        for thread in watchdog_data.get("thread_names", []):
+            rng_count += 1 if rng_search.match(thread) else 0
+            integ_count += 1 if integ_search.match(thread) else 0
+        wd_count_line = f"Integrity Checks: {integ_count}, Random Checks: {rng_count}"
     data = {
-        "status": system_state,
+        "status": system_state.upper(),
         "timestamp": clock.timestamp("iso_utc"),
         "uuid": jit_data.get("jit_check_uuid", "unknown") if jit_data else "unknown",
         "version": version,
@@ -29,7 +40,15 @@ def render_boot_wall(fingerprint_data, fingerprint_hash, jit_data, signature_dat
             "uuid": jit_data.get("jit_check_uuid", "unknown") if jit_data else "unknown",
             "package": package,
             "version": version,
-            "fingerprint_hash": fingerprint_hash
+            "fingerprint_hash": fingerprint_hash,
+            "signature_signed": jit_data.get("signature_signed", 0) if jit_data else 0,
+            "signature_total": jit_data.get("signature_total", 0) if jit_data else 0,
+        },
+        "watchdog": {
+            "enabled": watchdog_data.get("started", False) if watchdog_data else False,
+            "started_at": watchdog_data.get("started_at_timestamp", False) if watchdog_data else False,
+            "modules": watchdog_data.get("watchdog_modules", []) if watchdog_data else [],
+            "count" : wd_count_line,
         },
         "system": {
             "hostname": fingerprint_data.get("hostname", "unknown") if fingerprint_data else "unknown",
@@ -62,8 +81,8 @@ def render_boot_wall(fingerprint_data, fingerprint_hash, jit_data, signature_dat
     box_width = min(term_width - 4, 100)
     pad = 2
 
-    def center_line(line):
-        return f"║ {line.center(box_width - 4)} ║"
+    def center_line(line, ansi_character_count=0):
+        return f"║ {line.center(box_width - 4 + ansi_character_count)} ║"
 
     def section_title(title):
         return f"{ANSI.BOLD}{ANSI.CYAN}{title}:{ANSI.RESET}"
@@ -85,13 +104,39 @@ def render_boot_wall(fingerprint_data, fingerprint_hash, jit_data, signature_dat
 
     import os
     hashwarn = ""
+    untrusted = data['status'] == "INSECURE"
+    header_count = 0
     trusted_hash = os.getenv("PYDEP_TRUSTED_HASH")
-    if trusted_hash:
-        hashwarn = f"{ANSI.RED} WARNING: USING TRUSTED HASH | Last 10: [{trusted_hash[-10:]}]{ANSI.RESET}        "
+    if trusted_hash and not untrusted:
+        hashwarn = f"{ANSI.YELLOW} WARNING: USING TRUSTED HASH | Last 10: [{trusted_hash[-10:]}]{ANSI.RESET}"
+        data['status'] = f"{ANSI.YELLOW}{data['status']}"
+        header_count = len(ANSI.YELLOW)
+    elif untrusted:
+        hashwarn = f"{ANSI.RED} WARNING: VALIDATION FAILED!!!{ANSI.RESET}"
+        data['status'] = f"{ANSI.RED}INSECURE"
+        header_count = len(ANSI.RED)
+    elif data['status'] != "INSECURE":
+        data['status'] = f"{ANSI.GREEN}{data['status']}"
+        header_count = len(ANSI.GREEN)
+    header_count = len(ANSI.BOLD) + len(ANSI.RESET)
+    total_sign = data['runtime'].get('signature_total', 0)
+    signed = data['runtime'].get('signature_signed', 0)
+    abs_total_sign = abs(total_sign - signed)
+    sigdata = f"{signed}/{total_sign} Signed Functions"
+    if total_sign == signed and total_sign > 0:
+        sigdata = f"{ANSI.GREEN}{sigdata}{ANSI.RESET}"
+    elif abs_total_sign < 10 and abs_total_sign > 0:
+        sigdata = f"{ANSI.YELLOW}{sigdata}{ANSI.RESET}"
+    else:
+        sigdata = f"{ANSI.BOLD}{ANSI.RED}{sigdata}{ANSI.RESET}"
+    trusted_hash_last10 = trusted_hash[-10:] if trusted_hash and len(trusted_hash) > 10 else trusted_hash or ""
+    trusted_hash_prefix = trusted_hash[:-10] if trusted_hash and len(trusted_hash) > 10 else ""
+    trusted_hash = f"{trusted_hash_prefix}{ANSI.YELLOW}{trusted_hash_last10}{ANSI.RESET}" if trusted_hash else ""
+    trusted_hash_line = line("Trusted Hash", trusted_hash) if trusted_hash else ""
 
     lines = [
         "═" * box_width,
-        center_line(f"PYDEPGUARD ZERO TRUST RUNTIME | STATUS: {data['status'].upper()}"),
+        center_line((f"PYDEPGUARD ZERO TRUST RUNTIME | STATUS: {ANSI.BOLD}{data['status']}{ANSI.RESET}"), ansi_character_count=header_count+5),
         center_line(f"{data['timestamp']} | {data['uuid']}"),
         center_line(ansi_center(hashwarn, box_width - 4) if hashwarn else ""),
         "═" * box_width,
@@ -101,6 +146,15 @@ def render_boot_wall(fingerprint_data, fingerprint_hash, jit_data, signature_dat
         line("Package", data["runtime"]["package"]),
         line("Version", data["runtime"]["version"]),
         line("Fingerprint Hash", data["runtime"]["fingerprint_hash"]),
+        line("Signatures Validated", (sigdata)),
+        line("PyPi Hash", expected_hash if expected_hash else "N/A"),
+        line("Computed Hash", local_hash),
+        (trusted_hash_line if trusted_hash else ""),
+        f"{section_title('WATCHDOG')}",
+        line("Enabled", str(data["watchdog"]["enabled"]).upper()),
+        line("Started At", data["watchdog"]["started_at"] if data["watchdog"]["started_at"] else "N/A"),
+        line("Modules", ", ".join(data["watchdog"]["modules"]) if data["watchdog"]["modules"] else "N/A"),
+        line("Watchdogs By Type", data["watchdog"]["count"]),
         f"{section_title('SYSTEM')}",
         line("Hostname", data["system"]["hostname"]),
         line("OS", data["system"]["os"]),

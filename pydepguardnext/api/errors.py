@@ -7,10 +7,11 @@ class PyDepGuardError(Exception):
     def __init__(self, message, *, code=None):
         super().__init__(message)
         self.code = code or self.code
-        from pydepguardnext import _FLAGS
+        from pydepguardnext.bootstrap.modes import RUNTIME_MODE
         import sys
-        if _FLAGS.get("PYDEP_HARDENED") != "1":
-            sys.tracebacklimit = 0 
+        hardened_flag = RUNTIME_MODE.hardened
+        if hardened_flag:
+            sys.tracebacklimit = 0
 
 
 class LockfileValidationError(PyDepGuardError):

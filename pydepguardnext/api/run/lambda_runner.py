@@ -10,7 +10,7 @@ def run_lambda_script(script: Path, ctx, args):
     logit("Running in Lambda mode", "i", source=f"{logslug}.{run_lambda_script.__name__}")
     logit(f"Policy context: {ctx}", "i", source=f"{logslug}.{run_lambda_script.__name__}")
     repair_mode = False
-
+    lambda_name = ""
     if args.lambda_name:
         lambda_name = args.lambda_name
     if args.lambda_path:

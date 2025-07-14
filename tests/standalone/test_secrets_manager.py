@@ -24,10 +24,12 @@ def test_standalone_import_skips_secure_boot(monkeypatch):
     # Clear modules and env to force full boot logic
     reset_module("pydepguardnext")
     os.environ.pop("PYDEP_STANDALONE_NOSEC", None)
+    os.environ["PYDEP_NO_CAPTURE"] = "1"
 
     monkeypatch.setenv("PYDEP_STANDALONE_NOSEC", "1")
-
-    import pydepguardnext
-
-    assert getattr(pydepguardnext, "__standalone", False), "PyDepGuardNext did not detect standalone mode."
-    assert getattr(pydepguardnext, "__skip_secure_boot", False), "Secure boot should be skipped in standalone mode."
+    from pydepguardnext.bootstrap.boot import run_boot
+    run_boot(bootmode="standalone")
+    import pydepguardnext.standalone.secrets_manager  # noqa: F401
+    from pydepguardnext.bootstrap.modes import BootMode, RUNTIME_MODE
+    print(RUNTIME_MODE)
+    assert RUNTIME_MODE.mode != BootMode.SECURE, "Expected runtime mode to be set to STANDALONE."

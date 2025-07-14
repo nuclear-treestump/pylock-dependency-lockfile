@@ -3,6 +3,8 @@ from typing import Optional, Dict, Any
 import threading
 from pydepguardnext.api.log.logit import logit
 
+# PyDepMetrics: "api.secrets_module"
+
 logslug = "api.secrets.secretentry"
 
 class SecretEntry:

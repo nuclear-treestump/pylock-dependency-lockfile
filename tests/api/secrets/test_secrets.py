@@ -4,6 +4,12 @@ import pytest
 from pydepguardnext.api.secrets.secretentry import SecretEntry, PyDepSecMap
 from pydepguardnext.api.secrets.os_patch import SecureEnviron, patch_environ_with_secmap
 
+@pytest.fixture(autouse=True)
+def reset_environ():
+    original_environ = os.environ
+    yield
+    os.environ = original_environ
+
 def test_secretentry_ttl_expiry():
     entry = SecretEntry(value="sensitive", ttl_seconds=1)
     assert entry.get() == "sensitive"
@@ -269,8 +275,8 @@ def test_threaded_access_during_redact():
 
 def test_env_del_does_not_break_os_environ():
     secmap = PyDepSecMap()
-    env = SecureEnviron(secmap)
-    del env
+    testenv = SecureEnviron(secmap)
+    del testenv
     assert isinstance(os.environ, os._Environ) or isinstance(os.environ, dict)
 
 def test_subprocess_does_not_leak_secret(monkeypatch):

@@ -19,11 +19,13 @@ class RuntimeConfig:
     parent_uuid: str | None
     no_capture: bool
     flags: dict
+    quiet: bool = False
 
 RUNTIME_MODE: RuntimeConfig = RuntimeConfig(
     mode=BootMode.UNDEFINED,
     hardened=False,
     parent_uuid=None,
     no_capture=False,
-    flags={}
+    flags={},
+    quiet=False
 )

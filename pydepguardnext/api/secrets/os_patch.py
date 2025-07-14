@@ -4,6 +4,8 @@ from pydepguardnext.api.log.logit import logit
 import sys
 from collections.abc import MutableMapping
 
+# PyDepMetrics: "api.secrets_module"
+
 logslug = "api.secrets.os_patch"
 
 class SecureEnviron(MutableMapping):

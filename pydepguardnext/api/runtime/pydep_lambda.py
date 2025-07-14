@@ -64,7 +64,7 @@ def create_lambda_venv(app_dir: Path, project_root: Path) -> Path:
 
 def launch_lambda_runtime(python_bin: Path, app_dir: Path, stdin_ok: bool = False, teardown: int = 0, jit_deps: bool = False, path_var: str = None, venv_var: str = None) -> int:
     from pydepguardnext.api.log.logit import logit
-    from pydepguardnext import GLOBAL_INTEGRITY_CHECK
+    from pydepguardnext.bootstrap.state import RUNTIME_DETAILS
     from subprocess import Popen
     from threading import Timer
     from time import time
@@ -80,7 +80,7 @@ def launch_lambda_runtime(python_bin: Path, app_dir: Path, stdin_ok: bool = Fals
     from pydepguardnext import _MANIFEST
     pydep_manifest = {"app_dir": str(app_dir), "script": str(script_path)} or _MANIFEST
     secmap = secretentry.PyDepSecMap()
-    parent_uuid = f"{GLOBAL_INTEGRITY_CHECK.get('global_.jit_check_uuid')}"
+    parent_uuid = f"{RUNTIME_DETAILS.get('jit_check_uuid')}"
     secmap.add("PYDEP_CHILD", secretentry.SecretEntry("1", mock_env=True, mock_env_name="PYDEP_CHILD"))
     secmap.add("PYDEP_MANIFEST", secretentry.SecretEntry(json_dumps(pydep_manifest), mock_env=True, mock_env_name="PYDEP_MANIFEST"))
     secmap.add("PYDEP_PARENT_UUID", secretentry.SecretEntry(parent_uuid, mock_env=True, mock_env_name="PYDEP_PARENT_UUID"))

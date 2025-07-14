@@ -4,8 +4,7 @@ from os import getenv
 from time import time, sleep
 from sys import exit
 from types import MappingProxyType
-
-from pydepguardnext.bootstrap.function_registry import IntegrityFingerprint
+from .state import FUNC_ID_BUNDLE
 
 INTEGRITY_WATCHDOG = True
 INTEGRITY_WATCHDOG_STARTED = False
@@ -18,7 +17,7 @@ def run_integrity_check():
     from pydepguardnext.api.errors import PyDepIntegrityError
     from pydepguardnext.bootstrap import clock
 
-    fingerprint = IntegrityFingerprint()
+    fingerprint = FUNC_ID_BUNDLE
     mismatches = []
 
     for label, _ in fingerprint.get_ids().items():

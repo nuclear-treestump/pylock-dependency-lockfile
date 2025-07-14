@@ -16,10 +16,9 @@ from pydepguardnext.api.log.logit import logit
 from typing import Tuple
 import hashlib
 from pathlib import Path
-from .integrity import run_integrity_check, jit_check
 from collections import defaultdict
 from types import MappingProxyType
-print("ID OF JIT_CHECK:", id(jit_check))
+from pydepguardnext.bootstrap.state import RUNTIME_DETAILS, RUNTIME_IDS
 _original_import = builtins.__import__
 _original_importlib_import_module = importlib.import_module
 _global_timecheck = 0
@@ -29,35 +28,14 @@ _urltiming = float()
 _timepermodule = defaultdict(list)
 _original_reload = importlib.reload
 
-try:
-    from pydepguardnext import GLOBAL_INTEGRITY_CHECK
-except ImportError:
-    print("GLOBAL_INTEGRITY_CHECK not found.")
-
-try:
-    if type(GLOBAL_INTEGRITY_CHECK) is not MappingProxyType:
-        len(GLOBAL_INTEGRITY_CHECK)
-        from pydepguardnext.api.runtime.integrity import jit_check, run_integrity_check, start_patrol
-        print("FORCING INTEGRITY CHECK")
-        from uuid import uuid4
-        jit_uuid = str(uuid4())
-        jit_check(jit_uuid) # You may not like this.. but I don't care
-        print("GLOBAL_INTEGRITY_CHECK is not a MappingProxyType! THIS IS A PROBLEM!")
-        print("Reimporting integrity module to ensure correct JIT checks.")
-        from pydepguardnext.api.runtime.integrity import GLOBAL_INTEGRITY_CHECK
-except:
-    pass
 
 def guarded_reload(module):
     print("ENTERING GUARDED_RELOAD")
-    print("ID OF JIT_CHECK:", id(jit_check))
     if module.__name__.startswith("pydepguardnext"):
         raise RuntimeInterdictionError(f"Reload blocked: {module.__name__}")
     return _original_reload(module)
 
 importlib.reload = guarded_reload
-
-print("ID OF JIT_CHECK:", id(jit_check))
 
 logslug = "api.runtime.importer"
 
@@ -211,9 +189,9 @@ class AutoInstallFinder(importlib.abc.MetaPathFinder):
             if not is_real:
                 raise
             try:
-                if id(_patched_import) != GLOBAL_INTEGRITY_CHECK["importer._patched_import"]:
+                if id(_patched_import) != RUNTIME_IDS["importer._patched_import"]:
                     logit(f"ID MISMATCH: _patched_import has been modified, aborting auto-install", "f", source=f"{logslug}.{type(self).__name__}")
-                    raise RuntimeInterdictionError(expected=GLOBAL_INTEGRITY_CHECK["importer._patched_import"], found=id(_patched_import))
+                    raise RuntimeInterdictionError(message=f"expected={RUNTIME_IDS['importer._patched_import']}, found={id(_patched_import)}")
                 logit(f"Auto-installing: {fullname}", "i", source=f"{logslug}.{type(self).__name__}")
                 logit(f"Installing {fullname} ...", "i", source=f"{logslug}.{type(self).__name__}")
                 install_time = time.time()
@@ -274,9 +252,9 @@ def _patched_import(name, globals=None, locals=None, fromlist=(), level=0):
             raise
 
         try:
-            if id(_patched_import) != GLOBAL_INTEGRITY_CHECK["importer._patched_import"]:
+            if id(_patched_import) != RUNTIME_IDS["importer._patched_import"]:
                 logit(f"ID MISMATCH: _patched_import has been modified, aborting auto-install", "f", source=f"{logslug}.{_patched_import.__name__}")
-                raise RuntimeInterdictionError(expected=GLOBAL_INTEGRITY_CHECK["importer._patched_import"], found=id(_patched_import))
+                raise RuntimeInterdictionError(f"expected={RUNTIME_IDS['importer._patched_import']}, found={id(_patched_import)}")
             logit(f"__import__ fallback: attempting to install {pkg_name}", "i", source=f"{logslug}.{_patched_import.__name__}")
             logit(f"Installing {pkg_name} ...", "i", source=f"{logslug}.{_patched_import.__name__}")
             install_time = time.time()
@@ -318,9 +296,9 @@ def _patched_importlib_import_module(name, package=None):
             is_real, reason = _is_probably_real_package(top)
         if is_real:
             if _package_exists(top):
-                if id(_patched_importlib_import_module) != GLOBAL_INTEGRITY_CHECK["importer._patched_importlib_import_module"]:
+                if id(_patched_importlib_import_module) != RUNTIME_IDS["importer._patched_importlib_import_module"]:
                     logit(f"ID MISMATCH: _patched_importlib_import_module has been modified, aborting auto-install", "f", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
-                    raise RuntimeInterdictionError(expected=GLOBAL_INTEGRITY_CHECK["importer._patched_importlib_import_module"], found=id(_patched_importlib_import_module))
+                    raise RuntimeInterdictionError(f"expected={RUNTIME_IDS['importer._patched_importlib_import_module']}, found={id(_patched_importlib_import_module)}")
                 logit(f"Installing {top} ...", "i", source=f"{logslug}.{_patched_importlib_import_module.__name__}")
                 install_time = time.time()
                 subprocess.check_call([sys.executable, "-m", "pip", "install", top, "--progress-bar", "off"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -382,16 +360,11 @@ def generate_import_suggestions(stats: dict, median: float, average: float, thre
 
 
 def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
-    from pydepguardnext.api.runtime.integrity import jit_check
-    print("ENTERING INSTALL_MISSING_AND_RETRY")
-    print("ID OF JIT_CHECK:", id(jit_check))
     import contextlib
     import io
     global _global_timecheck, _timepermodule
     _global_timecheck = timecheck or time.time()
     if not cached:
-        print("NOT CACHED, RUNNING JIT CHECK")
-        print("ID OF JIT_CHECK:", id(jit_check))
         patch_all_import_hooks()
     from pydepguardnext.bootstrap import clock
     from datetime import datetime 
@@ -405,7 +378,7 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
         "script_path": script_path,
         "time": datetime.now().isoformat(),
         "cached": cached,
-        "parent_uuid": f"{GLOBAL_INTEGRITY_CHECK.get('global_.jit_check_uuid', "NO PARENT UUID")}"
+        "parent_uuid": f"{RUNTIME_DETAILS.get('jit_check_uuid', "NO PARENT UUID")}"
     }
     print(prerun_details)
     # Capture the output of the script while redirecting stdout and stderr

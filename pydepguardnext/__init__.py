@@ -8,6 +8,8 @@ SIGSTORE_PUBKEY = MappingProxyType({
 if getenv("PYDEP_ALLOW_UNSECURE", "0") == "1":
     print("[pydepguardnext] WARNING: Unsecured runtime. Only .standalone tools are available.")
     from . import standalone
+    from .bootstrap.modes import RUNTIME_MODE, BootMode
+    
 else:
     from .bootstrap.boot import run_boot
     run_boot()

@@ -9,7 +9,7 @@ from threading import Thread
 import random
 
 from pydepguardnext.bootstrap import clock
-from pydepguardnext.bootstrap.function_registry import IntegrityFingerprint
+from pydepguardnext.bootstrap.state import IntegrityFingerprint
 
 INTEGRITY_WATCHDOG = True
 INTEGRITY_WATCHDOG_STARTED = False
@@ -56,11 +56,14 @@ def _background_integrity_patrol():
 
 def start_patrol():
     global INTEGRITY_WATCHDOG_STARTED, INTEGRITY_WATCHDOG
+    i = 0
+    j = 0
     threads = [
-        Thread(target=_background_integrity_patrol, daemon=True, name=f"IntegrityPatrolThread{i}")
+        Thread(target=_background_integrity_patrol, daemon=True, name=f"IntegrityPatrolThread{i}{random.getrandbits(32)}")
         for i in range(4)
     ] + [
-        Thread(target=_background_prng_check, daemon=True, name="RandomCheckThread")
+        Thread(target=_background_prng_check, daemon=True, name=f"RandomCheckThread{j}{random.getrandbits(32)}")
+        for j in range(2)
     ]
     for t in threads:
         t.start()
@@ -73,9 +76,10 @@ def start_patrol():
         "watchdog_modules": ["_background_integrity_patrol", "_background_prng_check"]
     })
     print(f"[{clock.timestamp()}] [INTEGRITY] Watchdog threads launched: {INTEGRITY_WATCHDOG['thread_names']}")
+    return INTEGRITY_WATCHDOG
 
 def run_integrity_check():
-    from pydepguardnext import PyDepBullshitDetectionError
+    from pydepguardnext.api.errors import RuntimeInterdictionError
 
     fingerprint = IntegrityFingerprint()
     mismatches = []
@@ -97,10 +101,7 @@ def run_integrity_check():
         expected_digest = fingerprint.get_ids().get("id_sha256_digest", "missing")
 
         if getenv("PYDEP_HARDENED", "0") == "1":
-            raise PyDepBullshitDetectionError(
-                expected=expected_digest,
-                found=current_digest
-            ) from None
+            raise RuntimeInterdictionError(f"expected={expected_digest}, found={current_digest}") from None
         elif getenv("PYDEP_DISABLE_INTEGRITY_CHECK", "0") != "1":
             for label in mismatches:
                 print(f"[{clock.timestamp()}] [INTEGRITY] [BROKEN] Function {label} does not match frozen fingerprint.")

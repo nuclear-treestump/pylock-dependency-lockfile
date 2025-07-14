@@ -3,6 +3,8 @@ from pydepguardnext.api.errors import RuntimeInterdictionError
 import pytest
 from base64 import b64encode, b64decode
 import secrets
+from pydepguardnext.bootstrap.boot import run_boot
+run_boot()
 
 def test_seal_unseal_roundtrip():
     key = generate_key()
@@ -74,7 +76,8 @@ def test_unseal_with_random_junk():
     sealed = {
         "nonce": b64encode(secrets.token_bytes(32)).decode(),
         "blob": b64encode(secrets.token_bytes(64)).decode(),
-        "tag": "deadbeef" * 8  # 64 hex chars
+        "tag": "deadbeef" * 8,  # 64 hex chars
+        "manifest_uuid": "12345678-1234-5678-1234-567812345678"
     }
 
     with pytest.raises(RuntimeInterdictionError):

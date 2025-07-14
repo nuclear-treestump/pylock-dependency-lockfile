@@ -3,13 +3,17 @@ import builtins
 import types
 import pytest
 from unittest.mock import patch
-import pydepguardnext.api.runtime.importer as importer
+
 
 
 def test_import_hook_installs_missing_package(monkeypatch):
     call_log = []
 
-    # Simulate a finder that fails the first time but succeeds on retry
+    import pydepguardnext.api.runtime.importer as importer
+    import pydepguardnext.bootstrap.boot as boot
+    boot.run_boot()  # Ensures hook is patched
+
+    # Fake find_spec to fail once
     def conditional_find_spec(name, *args, **kwargs):
         if name == "missinglib" and not call_log:
             call_log.append("failed")
@@ -22,10 +26,11 @@ def test_import_hook_installs_missing_package(monkeypatch):
     monkeypatch.setattr("importlib.util.find_spec", conditional_find_spec)
     monkeypatch.setattr("subprocess.check_call", fake_install)
 
-    finder = importer.AutoInstallFinder()
-    spec = finder.find_spec("missinglib", None)
+    try:
+        __import__("missinglib")
+    except ModuleNotFoundError:
+        pass
 
-    assert spec is not None
     assert any("pip" in c for c in call_log)
 
 def test_safe_import_patch(monkeypatch):

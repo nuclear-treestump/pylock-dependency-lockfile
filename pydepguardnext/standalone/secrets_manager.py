@@ -7,9 +7,10 @@ import time
 from typing import Optional, Dict, Any
 import threading
 from dataclasses import dataclass, field
-from pydepguardnext import __child, __skip_secure_boot
-
-if not __child and __skip_secure_boot:
+from pydepguardnext.bootstrap.boot import run_boot
+run_boot(bootmode="standalone")
+from pydepguardnext.bootstrap.modes import RUNTIME_MODE, BootMode
+if RUNTIME_MODE.mode == BootMode.STANDALONE and not RUNTIME_MODE.mode == BootMode.CHILD:
     os.environ["PYDEP_STANDALONE_NOSEC"] = "1"
 
 def log_event(event_type: str, payload: dict):
