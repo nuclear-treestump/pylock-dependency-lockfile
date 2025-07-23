@@ -1,6 +1,6 @@
 [project]
 name = "pydepguardnext"
-version = "2.0.7"
+version = "2.0.8"
 description = "PyDepGuard (Next): A gatekeeper dependency validator for Python scripts. Beta branch for new features"
 authors = [{ name = "0xIkari", email = "zachary@zachary-miller.com" }]
 license = { text = "Modified MIT: attribution required for commercial use" }
@@ -18,11 +18,8 @@ classifiers = [
   "Topic :: System :: Systems Administration"
 ]
 
-
-
 [tool.setuptools]
-license-files = ["LICENSE.md"]
-packages = ["pydepguardnext"]
+package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "pydepguardnext" = [".sigstore",".sigstore.asc"]

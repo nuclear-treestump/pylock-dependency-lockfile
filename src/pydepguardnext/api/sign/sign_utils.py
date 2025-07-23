@@ -1,9 +1,39 @@
-from collections import Counter
-import math
+from typing import Tuple
+import os
+import sys
+import time
+import secrets
+import hmac
+import tempfile
 from hashlib import sha3_512
 from pathlib import Path
-import tempfile
-import hmac
+from pydepguardnext.api.errors import RuntimeInterdictionError
+from collections import Counter
+import math
+def shred_locals_by_ref(namespace: dict, exclude: Tuple[str, ...] = ()):
+    for k in list(namespace.keys()):
+        if k in exclude or k.startswith("__"):
+            continue
+        try:
+            namespace[k] = os.urandom(len(namespace[k]))
+            namespace[k] = None
+        except Exception:
+            pass
+        finally:
+            import gc
+            gc.collect()
+
+def constant_time_fail(reason="Tampering suspected. Request denied."):
+    time.sleep(1.4 + secrets.randbelow(200) / 1000 + secrets.randbits(2) * 0.5)
+    sys.tracebacklimit = 0
+    raise RuntimeInterdictionError(reason)
+
+
+# Entropy checks. While no method is perfect, a combination of these
+# should be sufficient to catch most issues with the OS entropy pool.
+# If any of these checks fail, we should assume the entropy pool is
+# compromised and refuse to proceed. This will CTD and CTF to RIE.
+
 def entropy_is_zero(data: bytes) -> bool:
     return all(b == 0 for b in data)
 
@@ -44,3 +74,5 @@ def random_checks(data: bytes, entropy_threshold: float = 7.8) -> bool:
         constant_time_fail("Entropy Error")
     shred_locals_by_ref(locals())
     return True
+
+

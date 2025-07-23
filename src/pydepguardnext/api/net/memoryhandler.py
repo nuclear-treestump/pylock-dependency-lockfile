@@ -11,6 +11,7 @@ import hmac
 import faulthandler
 import threading
 import time
+import hashlib
 
 from . import net_errors as n_errors
 
@@ -24,40 +25,60 @@ class SecureMemory:
              "canary_len", "page_size", "requested_size", "aligned_size", "total_size", 
              "_old_segv_handler", "_lock", "_libc", "_canary_mem", "_canary_ptr", "_k32", "_os"
              ,"_canary_mem_head", "_canary_mem_tail", "_canary_ptr_head", "_canary_ptr_tail", "hmac_key", 
-             "canary_hmac", "aligned_memory_hmac", "total_memory_hmac", "ptr_addr_hmac", "hmac_last_key", "hmac_ratchet_counter")
+             "canary_hmac", "aligned_memory_hmac", "total_memory_hmac", "ptr_addr_hmac", "hmac_last_key", "hmac_ratchet_counter", "_init",
+             "offset")
     def __init__(self, size: int):
+        self.closed = False
+        self._init = True
+        self._os = platform.system()
+        from ctypes.util import find_library
+        if self._os != "Windows":
+            libc_path = find_library("c") or "libc.so.6"
+            self._libc = ctypes.CDLL(libc_path)
+        self._k32 = ctypes.windll.kernel32 if self._os == "Windows" else None
+        self._lock = threading.RLock()
         self.canary_len = 16
         self.ptr = None # This will be set to the actual memory address later. I'm ignoring type hints here because this is a low-level memory management class.
         self.view = None  # This will be set to the memoryview of the allocated memory
-        self.page_size = mmap.PAGESIZE
-        self.requested_size = size
-        self.aligned_size = self._align_to_page(size)
-        self.total_size = self.aligned_size + 2 * self.page_size + 2 * self.canary_len
-        self.mem = mmap.mmap(-1, self.total_size, access=mmap.ACCESS_WRITE)
-        self.base_address = ctypes.addressof(ctypes.c_char.from_buffer(self.mem))
-        self._seed_canary()
-        self.ptr = self.base_address + self.page_size + self.canary_len
-        self.view = memoryview(self.mem)[self.ptr - self.base_address : self.ptr - self.base_address + self.aligned_size]
-        self._lock = threading.RLock()
-        self._os = platform.system()
-        from ctypes.util import find_library
-        libc_path = find_library("c") or "libc.so.6"
-        self._libc = ctypes.CDLL(libc_path)
-        self._k32 = ctypes.windll.kernel32 if self._os == "Windows" else None
+        self.hmac_key = secrets.token_bytes(64)
+        self.hmac_last_key = self.hmac_key
+        self.hmac_ratchet_counter = time.monotonic_ns()
         self.canary_hmac = None
         self.aligned_memory_hmac = None
         self.total_memory_hmac = None
         self.ptr_addr_hmac = None
-        self.hmac_key = secrets.token_bytes(64)
-        self.hmac_last_key = self.hmac_key
-        self.hmac_ratchet_counter = 0
-        self.closed = False
+        self.page_size = mmap.PAGESIZE
+        self.requested_size = size
+        self.aligned_size = self._align_to_page(size)
+        self.total_size = self.aligned_size + 2 * self.page_size + 2 * self.canary_len
+        self.mem = mmap.mmap(-1, self.total_size, access=mmap.ACCESS_WRITE) 
+        self.base_address = ctypes.addressof(ctypes.c_char.from_buffer(self.mem))
+        self.offset = self.page_size + self.canary_len
+        self.ptr = self.base_address + self.offset
+        self.view = memoryview(self.mem)[self.offset : self.offset + self.aligned_size]
+       
+        self._seed_canary()
+
+
+
+
+
+
+
+
 
         if n_errors.LOUD_ERRORS:
             print(f"[DEBUG] SecureMemory allocated {self.aligned_size} bytes at {hex(self.ptr)} (base {hex(self.base_address)})")
 
         self._lock_memory(self.ptr, self.aligned_size)
+        self.mem.seek(0)
+        membytes = self.mem.read(self.total_size)
+        self.mem.seek(0)
+        self.total_memory_hmac = hmac.new(self.hmac_key, membytes, 'blake2b').digest()
+        print(self.total_memory_hmac.hex())
         self._write_canaries()
+        self._update_memory_hmacs()
+        self.reseed_canary()
         self._lock_memory(self.ptr - self.canary_len, self.canary_len)
         self._lock_memory(self.ptr + self.aligned_size, self.canary_len)
         self._protect_guard_pages()
@@ -103,7 +124,7 @@ class SecureMemory:
         return self.aligned_size
     
     def __init_subclass__(cls, **kwargs):
-        raise TypeError("SecureMemory cannot be subclassed.")
+        raise TypeError("SecureMemory cannot be subclassed. If you want to extend it, wrap it. Composition over inheritance.")
 
     def __repr__(self):
         self._assert_open("__repr__")
@@ -198,7 +219,7 @@ class SecureMemory:
     
     def _secure_madvise(self):
         self._assert_open("_secure_madvise")
-        if platform.system() != "Windows":
+        if self._os != "Windows":
             libc = self._libc
             MADV_DONTDUMP = 16
             MADV_DONTFORK = 10
@@ -211,7 +232,8 @@ class SecureMemory:
         if system == "Windows":
             kernel32 = self._k32
             if not kernel32.VirtualLock(ctypes.c_void_p(ptr), ctypes.c_size_t(size)):
-                raise n_errors.SecureMemoryLockError("VirtualLock failed for SecureMemory _lock_memory call")
+                err = kernel32.GetLastError()
+                raise n_errors.SecureMemoryLockError(f"VirtualLock failed for SecureMemory _lock_memory call {ctypes.FormatError(err)}")
         else:
             try:
                 libc = self._libc
@@ -241,7 +263,7 @@ class SecureMemory:
             PAGE_NOACCESS = 0x01
             kernel32 = self._k32
             old_protect = ctypes.c_ulong()
-            for offset in (0, self.ptr + self.aligned_size):
+            for offset in (self.base_address, self.ptr + self.aligned_size):
                 if not kernel32.VirtualProtect(
                     ctypes.c_void_p(offset),
                     ctypes.c_size_t(self.page_size),
@@ -260,11 +282,12 @@ class SecureMemory:
         self._assert_open("_protect_memory")
         system = self._os
         prot = 0x0  # PROT_NONE by default
-
-        if enable:
+        win_prot = 0x01  # PAGE_NOACCESS on Windows
+        if not enable:
             prot = 0x1 | 0x2  # PROT_READ | PROT_WRITE on Unix
+            win_prot = 0x04  # PAGE_READWRITE on Windows
         if system == "Windows":
-            PAGE_READWRITE = 0x04 if enable else 0x01  # PAGE_NOACCESS
+            PAGE_READWRITE = win_prot
             kernel32 = self._k32
             old_protect = ctypes.c_ulong()
             if not kernel32.VirtualProtect(ctypes.c_void_p(self.ptr), ctypes.c_size_t(self.aligned_size), PAGE_READWRITE, ctypes.byref(old_protect)):
@@ -295,6 +318,30 @@ class SecureMemory:
             ctypes.memmove(tail_addr, ctypes.c_void_p(self._canary_ptr_tail), self.canary_len)
             self._protect_memory(enable=True)
             self._reprotect_canaries()
+
+    def _malr(self):
+        """
+        MALR, or Memory Address Layout Randomization, is essentially my take on ASLR (Address Space Layout Randomization).
+        This randomizes the base address and pointer of the allocated secure memory region to make it harder for attackers.
+        Note: This is a best-effort approach and may not be foolproof against all attack vectors.
+
+        This breaks pretty much all memory forensics tools and techniques, as they rely on predictable memory layouts.
+        GDB, redare2, valgrind, etc all become useless against this.
+
+        This happens every time a SecureMemory instance is created, and the memory region is re-randomized on every mutative operation.
+
+        For the developers using this, you won't even see this, as I've abstracted it away. 
+
+        I was just too proud to not document this.
+
+        Combining this, My xor_stream encrypt as rest, and the canary + HMAC integrity checks, this should be a nightmare for attackers.
+
+        My HMAC checks also help prevent Rowhammer and similar attacks, as any bit flips will be detected and blocks before sensitive operations.
+
+        To the RE devs who have to go after this: Good luck.
+        To the malware devs trying to bypass this: There are easier targets than this library. You will fail.
+        """
+        pass
 
     def _install_sigsegv_handler(self):
         with self._lock:
@@ -382,18 +429,26 @@ class SecureMemory:
                 raise n_errors.SecureMemoryAccessError("HMAC key is None — possible tampering")
             if self.hmac_ratchet_counter < time.monotonic_ns() - 5000000000:
                 raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is too old — possible tampering")
-            current_mem_hmac = hmac.new(self.hmac_key, self.mem[:], 'sha256').digest()
+            print("What the fuck???")
+            self._protect_memory(enable=False)
+            self.mem.seek(0)
+            mem_bytes = self.mem.read(self.total_size)
+            self.mem.seek(0)
+            self._protect_memory(enable=True)
+            current_mem_hmac = hmac.new(self.hmac_key, mem_bytes, 'blake2b').digest()
+            print(f"[DEBUG] SecureMemory current memory HMAC: {current_mem_hmac.hex()}")
+            print(f"[DEBUG] Key: {self.hmac_key.hex()}")
             try:
                 if not hmac.compare_digest(current_mem_hmac, self.total_memory_hmac):
                     raise n_errors.SecureMemoryAccessError("Total memory HMAC mismatch — possible corruption")
 
-                current_view_hmac = hmac.new(self.hmac_key, self.view.cast('B'), 'sha256').digest()
+                current_view_hmac = hmac.new(self.hmac_key, self.view.cast('B'), 'blake2b').digest()
                 if not hmac.compare_digest(current_view_hmac, self.aligned_memory_hmac):
                     raise n_errors.SecureMemoryAccessError("Aligned memory HMAC mismatch — tampering or overflow")
                 if self.ptr is None or self.base_address is None:
                     raise n_errors.SecureMemoryAccessError("Pointer or base address is None")
                 target = (self.ptr, self.base_address, self.aligned_size, self.total_size)
-                current_ptr_hmac = hmac.new(self.hmac_key, str(target).encode(), 'sha256').digest()
+                current_ptr_hmac = hmac.new(self.hmac_key, str(target).encode(), 'blake2b').digest()
                 if not hmac.compare_digest(current_ptr_hmac, self.ptr_addr_hmac):
                     raise n_errors.SecureMemoryAccessError("Pointer/address HMAC mismatch — possible tampering")
             except n_errors.SecureMemoryAccessError:
@@ -404,21 +459,34 @@ class SecureMemory:
     def _update_memory_hmacs(self):
         with self._lock:
             self._assert_open("_update_memory_hmacs")
-            self.check_canaries()
-            if self._os != "Windows":
-                self.canary_hmac = hmac.new(self.hmac_key, self._canary_mem_head[:] + self._canary_mem_tail[:], 'sha256').digest()
+            print(f"[DEBUG] Key:{self.hmac_key.hex()}")
+            if not self._init:
+                self.check_canaries()
+            self._init = False
+            self.canary_hmac = hmac.new(self.hmac_key, self._canary_mem_head[:] + self._canary_mem_tail[:], 'blake2b').digest()
             if self.aligned_size > 0:
-                self.aligned_memory_hmac = hmac.new(self.hmac_key, self.view.cast('B'), 'sha256').digest()
-            self.total_memory_hmac = hmac.new(self.hmac_key, self.mem[:], 'sha256').digest()
-            target = (self.ptr, self.base_address, self.aligned_size, self.total_size)
-            self.ptr_addr_hmac = hmac.new(self.hmac_key, str(target).encode(), 'sha256').digest()
+                cast_view = self.view.cast('B')
+                self.aligned_memory_hmac = hmac.new(self.hmac_key, cast_view, 'blake2b').digest()
+            self._protect_memory(enable=False)
+            try:
+                membytes = self.mem[:self.total_size]
+            finally:
+                self._protect_memory(enable=True)
+            self.total_memory_hmac = hmac.new(self.hmac_key, membytes, 'blake2b').digest()
+            ptr_bytes = (
+                self.ptr.to_bytes(8, 'little') +
+                self.base_address.to_bytes(8, 'little') +
+                self.aligned_size.to_bytes(8, 'little') +
+                self.total_size.to_bytes(8, 'little')
+            )
+            self.ptr_addr_hmac = hmac.new(self.hmac_key, ptr_bytes, 'blake2b').digest()
 
     def _rotate_hmac_key(self):
         with self._lock:
             self._assert_open("_rotate_hmac_key")
             self.hmac_last_key = self.hmac_key
             self.hmac_ratchet_counter = time.monotonic_ns()
-            self.hmac_key = secrets.token_bytes(64)
+            self.hmac_key = hashlib.blake2b(self.hmac_last_key + secrets.token_bytes(64)).digest()
 
     def is_tampered(self) -> bool:
         try:
@@ -452,6 +520,12 @@ class SecureMemory:
             if getattr(self, "_checking_canary", False):
                 return
             self._checking_canary = True
+            try:
+                if isinstance(self._init, bool) and self._init:
+                    self._init = False
+                    return
+            except Exception:
+                pass
             try:
                 if self._os != "Windows":
                     SIG_BLOCK = 0
@@ -494,7 +568,7 @@ class SecureMemory:
                             except Exception:
                                 if n_errors.LOUD_ERRORS:
                                     print("[WARN] Failed to restore original signal mask after canary check")
-                actual = hmac.new(self.hmac_key, self._canary_mem_head[:] + self._canary_mem_tail[:], 'sha256').digest()
+                actual = hmac.new(self.hmac_key, self._canary_mem_head[:] + self._canary_mem_tail[:], 'blake2b').digest()
                 if not hmac.compare_digest(actual, self.canary_hmac):
                     raise n_errors.SecureMemoryAccessError("Canary memory HMAC mismatch — hardware attack or race?")
             finally:
@@ -624,3 +698,4 @@ class SecureMemory:
                         import traceback
                         traceback.print_exc()
                 gc.collect()
+

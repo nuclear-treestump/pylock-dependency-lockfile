@@ -8,6 +8,13 @@ import hmac
 import os
 import platform
 from hashlib import blake2b
+from . import net_errors as n_errors
+# n_errors are errors specific to the net/ module
+# These were kept separate to make maintenance easier.
+# LOUD_ERRORS tells my constant_time_fail to short-circuit tracebacks.
+# If LOUD_ERRORS is False, tracebacks are suppressed for security reasons.
+
+
 
 def shred_locals_by_ref(namespace: dict, exclude: Tuple[str, ...] = ()):
     for k in list(namespace.keys()):
@@ -33,9 +40,12 @@ def shred_locals_by_ref(namespace: dict, exclude: Tuple[str, ...] = ()):
         finally:
             gc.collect()
 
-def constant_time_fail(reason="Tampering suspected. Request denied."):
-    time.sleep(1.4 + secrets.randbelow(200) / 1000 + secrets.randbits(2) * 0.5)
-    sys.tracebacklimit = 0
+def constant_time_fail(reason="Tampering suspected. Request denied.", detailed_msg: str = ""):
+    if detailed_msg and n_errors.LOUD_ERRORS:
+        reason = f"{detailed_msg}"
+    if not n_errors.LOUD_ERRORS:
+        time.sleep(1.4 + secrets.randbelow(200) / 1000 + secrets.randbits(2) * 0.5)
+        sys.tracebacklimit = 0
     raise RuntimeError(reason)
 
 def hkdf_blake2b_expand(secret: bytes, info: bytes = b"", length: int = 128) -> bytes:
