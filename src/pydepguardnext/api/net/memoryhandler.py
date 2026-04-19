@@ -75,7 +75,8 @@ class SecureMemory:
         membytes = self.mem.read(self.total_size)
         self.mem.seek(0)
         self.total_memory_hmac = hmac.new(self.hmac_key, membytes, 'blake2b').digest()
-        print(self.total_memory_hmac.hex())
+        if n_errors.LOUD_ERRORS:
+            print(self.total_memory_hmac.hex())
         self._write_canaries()
         self._update_memory_hmacs()
         self.reseed_canary()
@@ -339,7 +340,9 @@ class SecureMemory:
         My HMAC checks also help prevent Rowhammer and similar attacks, as any bit flips will be detected and blocks before sensitive operations.
 
         To the RE devs who have to go after this: Good luck.
-        To the malware devs trying to bypass this: There are easier targets than this library. You will fail.
+        To the malware devs trying to bypass this: There are easier targets than this library.
+
+        #TODO Implement this thing.
         """
         pass
 
@@ -422,35 +425,35 @@ class SecureMemory:
             self._assert_open("_verify_memory_integrity")
             self.check_canaries()
             if self.hmac_ratchet_counter > time.monotonic_ns():
-                raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is in the future — possible tampering")
+                raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is in the future - possible tampering")
             if self.hmac_ratchet_counter == 0:
-                raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is zero — possible tampering")
+                raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is zero - possible tampering")
             if self.hmac_key is None:
                 raise n_errors.SecureMemoryAccessError("HMAC key is None — possible tampering")
             if self.hmac_ratchet_counter < time.monotonic_ns() - 5000000000:
-                raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is too old — possible tampering")
-            print("What the fuck???")
+                raise n_errors.SecureMemoryAccessError("HMAC key ratchet counter is too old - possible tampering")
             self._protect_memory(enable=False)
             self.mem.seek(0)
             mem_bytes = self.mem.read(self.total_size)
             self.mem.seek(0)
             self._protect_memory(enable=True)
             current_mem_hmac = hmac.new(self.hmac_key, mem_bytes, 'blake2b').digest()
-            print(f"[DEBUG] SecureMemory current memory HMAC: {current_mem_hmac.hex()}")
-            print(f"[DEBUG] Key: {self.hmac_key.hex()}")
+            if n_errors.LOUD_ERRORS:
+                print(f"[DEBUG] SecureMemory current memory HMAC: {current_mem_hmac.hex()}")
+                print(f"[DEBUG] Key: {self.hmac_key.hex()}")
             try:
                 if not hmac.compare_digest(current_mem_hmac, self.total_memory_hmac):
-                    raise n_errors.SecureMemoryAccessError("Total memory HMAC mismatch — possible corruption")
+                    raise n_errors.SecureMemoryAccessError("Total memory HMAC mismatch - possible corruption")
 
                 current_view_hmac = hmac.new(self.hmac_key, self.view.cast('B'), 'blake2b').digest()
                 if not hmac.compare_digest(current_view_hmac, self.aligned_memory_hmac):
-                    raise n_errors.SecureMemoryAccessError("Aligned memory HMAC mismatch — tampering or overflow")
+                    raise n_errors.SecureMemoryAccessError("Aligned memory HMAC mismatch - tampering or overflow")
                 if self.ptr is None or self.base_address is None:
                     raise n_errors.SecureMemoryAccessError("Pointer or base address is None")
                 target = (self.ptr, self.base_address, self.aligned_size, self.total_size)
                 current_ptr_hmac = hmac.new(self.hmac_key, str(target).encode(), 'blake2b').digest()
                 if not hmac.compare_digest(current_ptr_hmac, self.ptr_addr_hmac):
-                    raise n_errors.SecureMemoryAccessError("Pointer/address HMAC mismatch — possible tampering")
+                    raise n_errors.SecureMemoryAccessError("Pointer/address HMAC mismatch - possible tampering")
             except n_errors.SecureMemoryAccessError:
                 self._zero_out()
                 self.closed = True
@@ -459,7 +462,8 @@ class SecureMemory:
     def _update_memory_hmacs(self):
         with self._lock:
             self._assert_open("_update_memory_hmacs")
-            print(f"[DEBUG] Key:{self.hmac_key.hex()}")
+            if n_errors.LOUD_ERRORS:
+                print(f"[DEBUG] Key:{self.hmac_key.hex()}")
             if not self._init:
                 self.check_canaries()
             self._init = False
@@ -570,7 +574,7 @@ class SecureMemory:
                                     print("[WARN] Failed to restore original signal mask after canary check")
                 actual = hmac.new(self.hmac_key, self._canary_mem_head[:] + self._canary_mem_tail[:], 'blake2b').digest()
                 if not hmac.compare_digest(actual, self.canary_hmac):
-                    raise n_errors.SecureMemoryAccessError("Canary memory HMAC mismatch — hardware attack or race?")
+                    raise n_errors.SecureMemoryAccessError("Canary memory HMAC mismatch - hardware attack or race?")
             finally:
                 self._checking_canary = False
                 

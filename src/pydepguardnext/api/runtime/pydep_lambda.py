@@ -93,16 +93,6 @@ def launch_lambda_runtime(python_bin: Path, app_dir: Path, stdin_ok: bool = Fals
         if env.startswith("PYDEP_") or env.startswith("VSCODE"):
             secmap.add(env, secretentry.SecretEntry(environ[env], mock_env=True, mock_env_name=env))
     myenv = secmap.to_env()
-    print("Environment Variables for Lambda Runtime:")
-    for k, v in myenv.items():
-        print(f"{k}={v}")
-    print("Environment Variables from os.environ:")
-    for k, v in environ.items():
-        print(f"{k}={v}")
-    print("Missing From myenv:")
-    for k, v in environ.items():
-        if k not in myenv:
-            print(f"{k}={v}")
     if stdin_ok:
         logit("Forwarding stdin to lambda runtime", "i", source=f"{logslug}.{launch_lambda_runtime.__name__}")
         proc = Popen(secure_args if jit_deps else args, stdin=stdin, env=myenv)

@@ -48,7 +48,6 @@ def handle_run(args):
     logit("Running script", "i", source=f"{logslug}.{handle_run.__name__}")
     if args.repair:
         logit("Repair mode active", "i", source=f"{logslug}.{handle_run.__name__}")
-        print("ID OF JIT_CHECK:", id(jit_check))
         run_with_repair(str(script))
     else:
         run_without_guard(str(script))
