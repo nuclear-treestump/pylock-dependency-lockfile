@@ -46,7 +46,7 @@ def _background_integrity_patrol():
                 "ID! Now!",
                 "Show me papers!",
                 "Your papers, please!",
-                "Validating we are still a snake and not coffee...",
+                "Validating we are still a snake...",
             ]
             message = random.choice(phrases)
             run_integrity_check()

@@ -28,16 +28,17 @@ _urltiming = float()
 _timepermodule = defaultdict(list)
 _original_reload = importlib.reload
 
+logslug = "api.runtime.importer"
 
 def guarded_reload(module):
-    print("ENTERING GUARDED_RELOAD")
+    logit("Entering Guarded Reload", "d", source=logslug)
     if module.__name__.startswith("pydepguardnext"):
         raise RuntimeInterdictionError(f"Reload blocked: {module.__name__}")
     return _original_reload(module)
 
 importlib.reload = guarded_reload
 
-logslug = "api.runtime.importer"
+
 
 _known_aliases = {
     "PIL": "Pillow",
@@ -71,9 +72,8 @@ _blocklist = {
 
 _whitelist = set()
 def _preload_lists():
-    print("ENTERING PRELOAD_LISTS")
+    logit("Entering List Preload", "d", source=logslug)
     from pydepguardnext.api.runtime.integrity import jit_check
-    print("ID OF JIT_CHECK:", id(jit_check))
     from os import getenv
     global _whitelist, _blocklist, _known_aliases, _known_skip_pypi_modules
     _whitelist.add("pydepguardnext")
@@ -102,7 +102,6 @@ def _preload_lists():
     logit(f"Blocklist: {_blocklist}", "d", source=f"{logslug}.{_preload_lists.__name__}")
     logit(f"Known Aliases: {_known_aliases}", "d", source=f"{logslug}.{_preload_lists.__name__}")
     logit(f"Known Skip PyPI Modules: {_known_skip_pypi_modules}", "d", source=f"{logslug}.{_preload_lists.__name__}")
-    print("ID OF JIT_CHECK:", id(jit_check))
     
 
     
@@ -110,8 +109,8 @@ def _preload_lists():
 
 # TODO:Replace with user-controlled override in the future
 
-
-DEBUG_IMPORTS = True
+from os import getenv as osgetenv
+DEBUG_IMPORTS = osgetenv("PDG_IMPORT_DEBUG", False)
 
 
 def _called_from_user_script():
@@ -128,7 +127,7 @@ def _called_from_user_script():
 
 def _log(name):   #pragma: no cover
     if DEBUG_IMPORTS:
-        print(f"[HOOK] Trying import: {name}")
+        logit(f"Attempting Import: {name}", "d", source=logslug)
 
 def _package_exists(name: str) -> bool:
     check_time = time.time()
@@ -380,7 +379,7 @@ def install_missing_and_retry(script_path: str, timecheck=None, cached=False):
         "cached": cached,
         "parent_uuid": f"{RUNTIME_DETAILS.get('jit_check_uuid', "NO PARENT UUID")}"
     }
-    print(prerun_details)
+    print(prerun_details) # Intentional behavior. Logit wouldn't be loaded here. 
     # Capture the output of the script while redirecting stdout and stderr
     combined = io.StringIO()
     with contextlib.redirect_stdout(combined), contextlib.redirect_stderr(combined):
