@@ -2,8 +2,7 @@ from types import MappingProxyType
 
 _BOOT_HAS_RUN = False
 
-PACKAGE = "pydepguardnext"
-VERSION = "2.0.6"
+PACKAGE_INFO = MappingProxyType({"package_name": "pydepguardnext","version": "2.0.8"})
 
 INTEGRITY_CHECK = {}
 INTEGRITY_UUID = {}
