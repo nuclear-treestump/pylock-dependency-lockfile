@@ -4,7 +4,7 @@ import socket
 from os import getenv
 from .fingerprint import get_module_root, sha256sum_dir
 from pydepguardnext.bootstrap import clock
-from pydepguardnext.bootstrap.state import PACKAGE, VERSION
+from pydepguardnext.bootstrap.state import PACKAGE_INFO
 from typing import Optional, Dict, Any, Tuple
 
 _validate_self_has_fired = False
@@ -36,7 +36,7 @@ def validate_self(jit_data: dict):
     _validate_self_has_fired = True
     status = "INSECURE"
 
-    code, expected_hash = fetch_pypi_sha256(PACKAGE, VERSION)
+    code, expected_hash = fetch_pypi_sha256(PACKAGE_INFO["package_name"], PACKAGE_INFO["version"])
     offline = code in ("not_reachable", "fetch_error")
 
     local_hash = sha256sum_dir(get_module_root())
