@@ -2,6 +2,25 @@
 
 # PyDepGuard: Python's first secure runtime attestation framework
 
+## Notice - GPG Signing Key Rotation Notice
+ 
+> **This is not a compromise.** No private key material was exposed or accessed by any third party.
+ 
+The GPG signing key used for previous releases (`CEC368E9E8F669B8`) was lost due to an unrecoverable hardware failure. The private key no longer exists in any form. Because the key was destroyed rather than exposed, **all existing signed releases remain valid and trustworthy**. There is no risk to any currently published version of PyDepGuard or PyDepGuardNext.
+ 
+Beginning with v5, releases will be signed with a new GPG key. The new key fingerprint and verification instructions will be published in the v5 release notes and in this README at that time.
+ 
+**What this means for you:**
+- **Existing versions (v4.x and earlier):** No action needed. Signatures are valid.
+  The public key on the keyserver still verifies all previously signed artifacts.
+- **Future versions (v5+):** You will need to import the new GPG key to verify
+  new releases. Instructions will be provided with the v5 release.
+**Retiring key:**
+- **Key ID:** `CEC368E9E8F669B8`
+- **Fingerprint:** `5086 1AFA BE96 B038 8D93 9D97 CEC3 68E9 E8F6 69B8`
+- **Status:** Private key destroyed (hardware failure). Cannot be used to sign new releases.
+  Cannot be revoked (revocation certificate was not generated prior to loss).
+
 ## New Tool Available
 SecretsManager - Ephemeral Secrets for Runtime Security
 
